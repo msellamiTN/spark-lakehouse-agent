@@ -64,8 +64,17 @@ def main() -> int:
         # Fail early with a clear message if the S3A classes are absent.
         jvm.java.lang.Class.forName("org.apache.hadoop.fs.s3a.S3AFileSystem")
         endpoint = hadoop_conf.get("fs.s3a.endpoint")
+        region = hadoop_conf.get("fs.s3a.endpoint.region")
+        path_style = hadoop_conf.get("fs.s3a.path.style.access")
+        credential_provider = hadoop_conf.get("fs.s3a.aws.credentials.provider")
         if endpoint != "http://minio:9000":
             raise RuntimeError(f"Unexpected S3A endpoint: {endpoint!r}")
+        if region != "us-east-1" or path_style != "true":
+            raise RuntimeError(
+                f"Unexpected MinIO S3A region/path-style settings: {region!r}/{path_style!r}"
+            )
+        if credential_provider != "com.amazonaws.auth.EnvironmentVariableCredentialsProvider":
+            raise RuntimeError(f"Unexpected S3A credentials provider: {credential_provider!r}")
 
         fs = test_path.getFileSystem(hadoop_conf)
         source = spark.createDataFrame(
@@ -86,7 +95,7 @@ def main() -> int:
             raise AssertionError(f"Read-back mismatch: {rows!r}")
 
         print("PASS: Hadoop/S3A dependency alignment:", hadoop_version)
-        print("PASS: S3A endpoint:", endpoint)
+        print("PASS: S3A endpoint / region / path style:", endpoint, region, path_style)
         print("PASS: Spark executors wrote Parquet to MinIO and read it back.")
         print("PASS: Rows verified:", len(rows))
         print("Test prefix:", test_uri)
@@ -94,9 +103,8 @@ def main() -> int:
     finally:
         if fs is not None and fs.exists(test_path):
             if not fs.delete(test_path, True):
-                print(f"WARNING: Could not remove validation prefix {test_uri}", file=sys.stderr)
-            else:
-                print("Validation prefix cleaned up.")
+                raise RuntimeError(f"Could not remove validation prefix {test_uri}")
+            print("Validation prefix cleaned up.")
         spark.stop()
 
 

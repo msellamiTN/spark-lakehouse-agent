@@ -62,6 +62,7 @@ def main() -> int:
 
         # Fail early with a clear message if the S3A classes are absent.
         jvm.java.lang.Class.forName("org.apache.hadoop.fs.s3a.S3AFileSystem")
+        jvm.java.lang.Class.forName("com.amazonaws.auth.EnvironmentVariableCredentialsProvider")
         endpoint = hadoop_conf.get("fs.s3a.endpoint")
         region = hadoop_conf.get("fs.s3a.endpoint.region")
         path_style = hadoop_conf.get("fs.s3a.path.style.access")

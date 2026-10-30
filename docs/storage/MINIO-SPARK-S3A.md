@@ -18,60 +18,20 @@ Do not upgrade `hadoop-aws` independently. Hadoop's S3A connector and Hadoop cli
 
 The image is built first by `./scripts/up.sh`; that script then builds Jupyter and both MCP images against the local custom Spark image. This explicit order avoids dependent Docker builds trying to pull the not-yet-built local base image. The OVH host must be able to reach `repo.maven.apache.org` over HTTPS during the Spark image build.
 
-## 2. MinIO bucket and service identity
+## 2. MinIO bucket and credentials
 
-The configured bucket is `lakehouse`. It must already exist; the deployment does not create or delete buckets automatically.
+The configured bucket is `lakehouse`. Create it once through the MinIO Console (`http://<OVH-host>:9001`, via your private admin access): **Object Browser → Create Bucket → lakehouse**. No shell command, `mc` client, extra service account, or additional Spark credential is required.
 
-Create a dedicated MinIO user/service account for Spark, for example `spark-lakehouse`, with a policy scoped to the `lakehouse` bucket. Do not use `MINIO_ROOT_USER` / `MINIO_ROOT_PASSWORD` for Spark.
+For the simple single-host lab profile, Compose reuses the MinIO credentials already present in `.env`:
 
-An illustrative bucket-scoped policy for a single Spark pipeline identity is:
+- `MINIO_ROOT_USER` is injected as `AWS_ACCESS_KEY_ID`.
+- `MINIO_ROOT_PASSWORD` is injected as `AWS_SECRET_ACCESS_KEY`.
 
-```json
-{
-  "Version": "2012-10-17",
-  "Statement": [
-    {
-      "Effect": "Allow",
-      "Action": [
-        "s3:ListBucket",
-        "s3:GetBucketLocation",
-        "s3:ListBucketMultipartUploads"
-      ],
-      "Resource": ["arn:aws:s3:::lakehouse"]
-    },
-    {
-      "Effect": "Allow",
-      "Action": [
-        "s3:GetObject",
-        "s3:PutObject",
-        "s3:DeleteObject",
-        "s3:AbortMultipartUpload",
-        "s3:ListMultipartUploadParts"
-      ],
-      "Resource": ["arn:aws:s3:::lakehouse/*"]
-    }
-  ]
-}
-```
+The same values are passed to both Spark workers, Jupyter (the Spark driver), and Spark MCP (the Spark driver). The Hadoop S3A environment-variable credential provider reads them automatically. You do not need `SPARK_S3A_ACCESS_KEY`, `SPARK_S3A_SECRET_KEY`, or any manual credential-generation step. Do not duplicate the credentials in `spark-defaults.conf`.
 
-This grants object operations inside one bucket, not bucket administration. For stricter production isolation, split ingestion and curation identities and restrict object resources by zone prefix. Test the final policy against the deployed MinIO release and the actual Spark write mode/committer.
+**Security trade-off:** MinIO root credentials have administrative privileges, not bucket-scoped permissions. This is intentionally the simplest configuration for a trusted, single-user lab. Do not use this profile for untrusted students, sensitive data, or production multi-tenancy. For those cases, switch to a dedicated bucket-scoped Spark service identity or a secrets manager. Keep MinIO MCP's optional identity and tool-level allowlist separate; the Spark root credential does not change MCP's own authorization checks.
 
-Keep the MinIO MCP identity separate. Its bucket allowlist and read/write policy are not a substitute for Spark's S3A identity. Agent writes remain disabled by default.
-
-## 3. Configure local secrets
-
-Add these values to the untracked `.env` file:
-
-```dotenv
-SPARK_S3A_ACCESS_KEY=<dedicated-spark-service-account-access-key>
-SPARK_S3A_SECRET_KEY=<dedicated-spark-service-account-secret-key>
-```
-
-The Compose configuration injects these values into the Jupyter driver, Spark MCP driver, and Spark worker containers as `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY`. Hadoop S3A uses the AWS SDK environment-variable credential provider. Credentials are not stored in `spark-defaults.conf`, notebooks, or Git.
-
-Do not paste the values into chat, terminal transcripts, notebooks or logs. The startup script checks that both values are configured without printing them. For this single-host lab, Compose injects the values as container environment variables; production deployments should use Docker secrets or an external secret manager and stronger per-domain identities.
-
-## 4. S3A configuration
+## 3. S3A configuration
 
 The read-only configuration file `infrastructure/spark/spark-defaults.conf` sets:
 
@@ -84,7 +44,7 @@ The read-only configuration file `infrastructure/spark/spark-defaults.conf` sets
 - AWS SDK environment-variable credentials provider
 - Conservative connection, thread and multipart defaults
 
-The Spark master, workers, Jupyter and Spark MCP receive the same configuration file. The workers receive the S3A credentials too, so executor-side file operations can authenticate.
+The Spark master, workers, Jupyter and Spark MCP receive the same configuration file. The workers, Jupyter driver and Spark MCP driver receive the existing MinIO root credentials through Compose environment interpolation, so executor-side and driver-side S3A operations can authenticate.
 
 ## 5. Rebuild and validate
 
@@ -112,7 +72,7 @@ The validation suite includes `notebooks/validate_minio_s3a.py`. It:
 5. Reads the Parquet dataset back through S3A and verifies the rows.
 6. Deletes only that unique validation prefix.
 
-The test waits for MinIO readiness and requires ListBucket, GetObject, PutObject and DeleteObject permissions for the validation prefix. It does not modify Raw/Bronze/Silver/Gold datasets. A passing validation confirms the driver and distributed executor path; it does not validate production throughput, HA, catalog transactions or multi-tenant isolation.
+The test waits for MinIO readiness and uses the configured MinIO credentials to perform ListBucket, GetObject, PutObject and DeleteObject operations under the validation prefix. It does not modify Raw/Bronze/Silver/Gold datasets. A passing validation confirms the driver and distributed executor path; it does not validate production throughput, HA, catalog transactions or multi-tenant isolation.
 
 ## 6. Canonical object layout
 
@@ -137,8 +97,8 @@ Use Parquet as the baseline file format. Plain Parquet on S3A is not transaction
 | Image build cannot download JARs | Outbound HTTPS to Maven Central is blocked | Verify the OVH host can reach `repo.maven.apache.org:443` |
 | Build fails Hadoop client JAR check | Spark base image does not contain the pinned Hadoop client | Keep the Spark 3.5.6 base image or align all Hadoop/S3A versions together |
 | `NoSuchMethodError` in Hadoop/AWS classes | Hadoop or AWS SDK version conflict | Keep hadoop-aws 3.3.4 and SDK bundle 1.12.262 aligned |
-| `AccessDenied` / HTTP 403 | Spark identity policy too narrow or wrong credentials | Check service account policy and loaded env presence without printing values |
-| `InvalidAccessKeyId` | Credentials not recognized by MinIO | Recreate the affected Compose containers after changing `.env` |
+| `AccessDenied` / HTTP 403 | Wrong MinIO credentials or bucket policy | Confirm `.env` MinIO root credentials match the running MinIO instance; do not print them |
+| `InvalidAccessKeyId` | Credentials not recognized by MinIO | Confirm the `.env` values match the MinIO instance; recreate Spark containers after changing credentials |
 | `UnknownHostException: minio` | Driver not on Compose network or wrong endpoint | Use `http://minio:9000` from platform containers |
 | Signature / endpoint errors | Path-style or endpoint mismatch | Keep path-style access enabled and endpoint exact |
 | Driver succeeds but executor fails | Credentials not present in worker containers | Check AWS env variable presence on both workers without printing values |

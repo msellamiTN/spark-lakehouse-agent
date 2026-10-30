@@ -104,7 +104,7 @@ services:
       PYSPARK_PYTHON: python3
       PYSPARK_DRIVER_PYTHON: python3
       LAKEHOUSE_HOME: /lakehouse
-      PYTHONPATH: /workspace
+      PYTHONPATH: /workspace:/opt/spark/python/lib/pyspark.zip:/opt/spark/python/lib/py4j-0.10.9.7-src.zip
     ports:
       - "127.0.0.1:${JUPYTER_PORT:-8888}:8888"
     volumes:

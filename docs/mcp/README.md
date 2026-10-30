@@ -4,10 +4,10 @@ This project provides two independent MCP servers so compatible AI agents can us
 
 ## 1. Topology and endpoints
 
-| Server | Container | Container endpoint | Host endpoint | Transport |
+| Server | Container | Container endpoint | Local loopback | Private student endpoint |
 |---|---|---|---|---|
-| Spark MCP | `lakehouse-spark-mcp` | `http://spark-mcp:8000/mcp` | `http://localhost:8002/mcp` | Streamable HTTP |
-| MinIO MCP | `lakehouse-minio-mcp` | `http://minio-mcp:8001/mcp` | `http://localhost:8003/mcp` | Streamable HTTP |
+| Spark MCP | `lakehouse-spark-mcp` | `http://spark-mcp:8000/mcp` | `http://127.0.0.1:8002/mcp` | `https://<platform-fqdn>/spark/mcp` |
+| MinIO MCP | `lakehouse-minio-mcp` | `http://minio-mcp:8001/mcp` | `http://127.0.0.1:8003/mcp` | `https://<platform-fqdn>/minio/mcp` |
 
 MCP host ports are bound to loopback by Docker Compose. Remote students use the private HTTPS endpoints through the default Tailscale Serve container; they do not connect to the OVH public IP. An agent container on `spark-lakehouse-network` uses the container endpoint, not localhost.
 

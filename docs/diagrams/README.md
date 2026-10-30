@@ -20,7 +20,7 @@ The deployment architecture and logical data architecture are maintained as sepa
 
 [Open logical Lakehouse SVG at full resolution](logical-lakehouse-minio-spark.svg)
 
-The `lakehouse` bucket contains logical `raw/`, `bronze/`, `silver/` and `gold/` prefixes. Spark reads and writes those zones through S3A. This is the target logical design; see the deployment-status note in [ARCHITECTURE.md](../ARCHITECTURE.md) before assuming the connector is active in the current Compose runtime.
+The `lakehouse` bucket contains logical `raw/`, `bronze/`, `silver/` and `gold/` prefixes. Compose configures Spark to read and write those zones through S3A. Rebuild the custom image and pass the distributed Parquet validation before marking the integration operational on a host; see [ARCHITECTURE.md](../ARCHITECTURE.md).
 
 ## Diagram catalogue
 

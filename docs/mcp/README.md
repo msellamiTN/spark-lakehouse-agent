@@ -55,7 +55,7 @@ Environment variables:
 
 | Tool | Input | Behaviour |
 |---|---|---|
-| `list_buckets` | none | Lists only buckets in the configured allowlist |
+| `list_buckets` | none | Checks accessibility of buckets in the configured allowlist |
 | `list_objects` | `bucket`, optional `prefix`, `max_keys` | Lists at most 500 object keys |
 | `get_object_metadata` | `bucket`, `key` | Reads object metadata only |
 | `read_text_object` | `bucket`, `key` | Reads small UTF-8 text, JSON, CSV, YAML or Markdown objects |

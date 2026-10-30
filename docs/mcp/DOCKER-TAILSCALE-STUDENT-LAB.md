@@ -128,6 +128,10 @@ docker compose exec tailscale tailscale status
 docker compose exec tailscale tailscale serve status
 ```
 
+### Retire the previous host-level Serve routes
+
+The previous deployment may still have Serve routes on the Ubuntu host's original Tailscale node. After the new Docker node is authenticated and both MCP routes have been validated from a student device, inspect the old host routes with `sudo tailscale serve status`. If the old host-level Serve configuration contains only the former MCP routes, remove those old routes with `sudo tailscale serve reset`. Do **not** uninstall or stop the host's `tailscaled` service until you have confirmed that you no longer depend on it for VM administration; the new Docker Tailscale node is a separate identity.
+
 The actual URL is based on the hostname and tailnet DNS name displayed by Tailscale. With the default hostname, the pattern is:
 
 - Spark MCP: `https://spark-lakehouse-agent.<tailnet>.ts.net/spark/mcp`

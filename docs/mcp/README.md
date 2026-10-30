@@ -16,10 +16,12 @@ MCP host ports are bound to loopback by Docker Compose. Remote students use the 
 From the repository root, start the complete default platform (including Tailscale and Tailscale Serve):
 
 ```bash
-docker compose up -d --build
+./scripts/up.sh
 docker compose ps
 docker compose logs -f spark-mcp minio-mcp mcp-gateway tailscale
 ```
+
+The startup script builds the custom Spark/S3A image before dependent Jupyter and MCP images.
 
 For the complete environment setup and remote access flow, see [the default Docker Compose deployment guide](DOCKER-TAILSCALE-STUDENT-LAB.md).
 

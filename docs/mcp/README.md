@@ -188,8 +188,8 @@ The Spark-to-MinIO S3A integration, bucket lifecycle automation, data catalog/me
 
 ## 8. Security and operations
 
-- The HTTP MCP endpoints have no authentication configured and must remain loopback-only in this local development deployment.
-- Do not publish these ports to a LAN or public network. A remote deployment needs TLS, authenticated transport, network restrictions, per-agent identity and authorization.
+- MCP itself does not add application-level authentication. The default remote path is private Tailscale Serve HTTPS on TCP 443; direct host listeners remain loopback-only.
+- Do not publish MCP ports to a LAN or public network. Tailnet grants restrict network reachability but do not provide per-tool authorization or per-student data isolation.
 - Use a dedicated MinIO identity and least-privilege policy. Keep the root account for MinIO administration only.
 - Keep all secrets in `.env`, excluded from Git.
 - Restrict which agent runtimes can access the Docker network.

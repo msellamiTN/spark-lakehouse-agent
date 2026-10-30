@@ -5,10 +5,10 @@ services:
     build:
       context: ./infrastructure/spark
       args:
-        SPARK_BASE_IMAGE: ${SPARK_BASE_IMAGE}
+        SPARK_BASE_IMAGE: ${SPARK_BASE_IMAGE:-apache/spark:3.5.6-scala2.12-java17-python3-ubuntu}
         HADOOP_VERSION: ${HADOOP_VERSION:-3.3.4}
         AWS_SDK_BUNDLE_VERSION: ${AWS_SDK_BUNDLE_VERSION:-1.12.262}
-    image: ${SPARK_IMAGE}
+    image: ${SPARK_IMAGE:-spark-lakehouse-s3a:3.5.6}
     container_name: lakehouse-spark-master
     hostname: spark-master
     command: >

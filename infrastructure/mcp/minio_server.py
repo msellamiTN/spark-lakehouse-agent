@@ -15,6 +15,9 @@ mcp = FastMCP(
         "read small text objects, and optionally write text outputs when write access "
         "is explicitly enabled. Do not expose or return credentials."
     ),
+    host=os.getenv("MCP_HOST", "0.0.0.0"),
+    port=int(os.getenv("MCP_PORT", "8001")),
+    stateless_http=True,
 )
 
 ENDPOINT = os.getenv("MINIO_ENDPOINT", "http://minio:9000")
@@ -189,9 +192,4 @@ def write_text_object(bucket: str, key: str, content: str, content_type: str = "
 
 
 if __name__ == "__main__":
-    mcp.run(
-        transport="streamable-http",
-        host=os.getenv("MCP_HOST", "0.0.0.0"),
-        port=int(os.getenv("MCP_PORT", "8001")),
-        stateless_http=True,
-    )
+    mcp.run(transport="streamable-http")

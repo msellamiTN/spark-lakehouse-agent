@@ -71,7 +71,9 @@ Environment variables:
 | `read_text_object` | `bucket`, `key` | Reads small UTF-8 text, JSON, CSV, YAML or Markdown objects |
 | `write_text_object` | `bucket`, `key`, `content`, optional `content_type` | Writes a bounded text artifact if writes are enabled |
 
-### MinIO setup
+### MinIO image and setup
+
+The Compose service uses `MINIO_IMAGE` from `.env`. The template defaults to the publicly pullable Chainguard image `cgr.dev/chainguard/minio:latest`, rather than the discontinued upstream `minio/minio` Docker Hub image. The Chainguard image runs as non-root UID/GID `65532`; keep the named `minio_data` volume and do not apply a blanket `chown` or delete the volume to troubleshoot permissions. If MinIO reports a data-directory permission error, inspect the volume ownership and logs before making a data-preserving ownership correction.
 
 1. Open the MinIO Console at `http://localhost:9001`.
 2. Authenticate with the credentials in `.env`.

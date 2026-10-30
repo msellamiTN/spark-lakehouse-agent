@@ -10,7 +10,13 @@ USER root
 # exact version used by hadoop-aws. Mixing Hadoop patch versions is unsupported.
 RUN set -eux; \
     test -f "/opt/spark/jars/hadoop-client-api-${HADOOP_VERSION}.jar"; \
-    test -f "/opt/spark/jars/hadoop-client-runtime-${HADOOP_VERSION}.jar"
+    test -f "/opt/spark/jars/hadoop-client-runtime-${HADOOP_VERSION}.jar"; \
+    for jar in /opt/spark/jars/hadoop-aws-*.jar; do \
+      [ ! -e "$jar" ] || [ "$jar" = "/opt/spark/jars/hadoop-aws-${HADOOP_VERSION}.jar" ] || { echo "Conflicting hadoop-aws JAR: $jar"; exit 1; }; \
+    done; \
+    for jar in /opt/spark/jars/aws-java-sdk-bundle-*.jar; do \
+      [ ! -e "$jar" ] || [ "$jar" = "/opt/spark/jars/aws-java-sdk-bundle-${AWS_SDK_BUNDLE_VERSION}.jar" ] || { echo "Conflicting AWS SDK bundle: $jar"; exit 1; }; \
+    done
 
 # Hadoop 3.3.4 hadoop-aws declares AWS SDK v1 bundle 1.12.262.
 ENV HADOOP_VERSION=${HADOOP_VERSION} \

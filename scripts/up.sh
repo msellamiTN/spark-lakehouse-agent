@@ -17,7 +17,10 @@ for key in SPARK_S3A_ACCESS_KEY SPARK_S3A_SECRET_KEY; do
   }
 done
 docker compose config --quiet
-docker compose up -d --build
+# Build the shared Spark/S3A base first; Jupyter and MCP images inherit it.
+docker compose build spark-master
+docker compose build jupyter spark-mcp minio-mcp
+docker compose up -d
 echo
 echo "Complete platform started. Inspect Tailscale with:"
 echo "  docker compose exec tailscale tailscale status"

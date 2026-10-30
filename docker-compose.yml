@@ -49,8 +49,8 @@ services:
       spark://spark-master:7077
     environment:
       SPARK_NO_DAEMONIZE: "true"
-      AWS_ACCESS_KEY_ID: ${SPARK_S3A_ACCESS_KEY:?Set SPARK_S3A_ACCESS_KEY in .env}
-      AWS_SECRET_ACCESS_KEY: ${SPARK_S3A_SECRET_KEY:?Set SPARK_S3A_SECRET_KEY in .env}
+      AWS_ACCESS_KEY_ID: ${MINIO_ROOT_USER:?Set MINIO_ROOT_USER in .env}
+      AWS_SECRET_ACCESS_KEY: ${MINIO_ROOT_PASSWORD:?Set MINIO_ROOT_PASSWORD in .env}
     ports:
       - "127.0.0.1:${SPARK_WORKER_1_UI_PORT:-8081}:8081"
     volumes:
@@ -59,6 +59,8 @@ services:
     depends_on:
       spark-master:
         condition: service_healthy
+      minio:
+        condition: service_started
     networks: [lakehouse]
     healthcheck:
       test: ["CMD-SHELL", "python3 -c \"import urllib.request; urllib.request.urlopen('http://localhost:8081/', timeout=3)\""]
@@ -83,8 +85,8 @@ services:
       spark://spark-master:7077
     environment:
       SPARK_NO_DAEMONIZE: "true"
-      AWS_ACCESS_KEY_ID: ${SPARK_S3A_ACCESS_KEY:?Set SPARK_S3A_ACCESS_KEY in .env}
-      AWS_SECRET_ACCESS_KEY: ${SPARK_S3A_SECRET_KEY:?Set SPARK_S3A_SECRET_KEY in .env}
+      AWS_ACCESS_KEY_ID: ${MINIO_ROOT_USER:?Set MINIO_ROOT_USER in .env}
+      AWS_SECRET_ACCESS_KEY: ${MINIO_ROOT_PASSWORD:?Set MINIO_ROOT_PASSWORD in .env}
     ports:
       - "127.0.0.1:${SPARK_WORKER_2_UI_PORT:-8082}:8082"
     volumes:
@@ -93,6 +95,8 @@ services:
     depends_on:
       spark-master:
         condition: service_healthy
+      minio:
+        condition: service_started
     networks: [lakehouse]
     healthcheck:
       test: ["CMD-SHELL", "python3 -c \"import urllib.request; urllib.request.urlopen('http://localhost:8082/', timeout=3)\""]
@@ -117,8 +121,8 @@ services:
       PYSPARK_PYTHON: python3
       PYSPARK_DRIVER_PYTHON: python3
       LAKEHOUSE_HOME: /lakehouse
-      AWS_ACCESS_KEY_ID: ${SPARK_S3A_ACCESS_KEY:?Set SPARK_S3A_ACCESS_KEY in .env}
-      AWS_SECRET_ACCESS_KEY: ${SPARK_S3A_SECRET_KEY:?Set SPARK_S3A_SECRET_KEY in .env}
+      AWS_ACCESS_KEY_ID: ${MINIO_ROOT_USER:?Set MINIO_ROOT_USER in .env}
+      AWS_SECRET_ACCESS_KEY: ${MINIO_ROOT_PASSWORD:?Set MINIO_ROOT_PASSWORD in .env}
       PYTHONPATH: /workspace:/opt/spark/python/lib/pyspark.zip:/opt/spark/python/lib/py4j-0.10.9.7-src.zip
     ports:
       - "127.0.0.1:${JUPYTER_PORT:-8888}:8888"
@@ -207,8 +211,8 @@ services:
       PYSPARK_PYTHON: python3
       SPARK_MCP_MAX_ROWS: ${SPARK_MCP_MAX_ROWS:-100}
       SPARK_MCP_HARD_MAX_ROWS: ${SPARK_MCP_HARD_MAX_ROWS:-500}
-      AWS_ACCESS_KEY_ID: ${SPARK_S3A_ACCESS_KEY:?Set SPARK_S3A_ACCESS_KEY in .env}
-      AWS_SECRET_ACCESS_KEY: ${SPARK_S3A_SECRET_KEY:?Set SPARK_S3A_SECRET_KEY in .env}
+      AWS_ACCESS_KEY_ID: ${MINIO_ROOT_USER:?Set MINIO_ROOT_USER in .env}
+      AWS_SECRET_ACCESS_KEY: ${MINIO_ROOT_PASSWORD:?Set MINIO_ROOT_PASSWORD in .env}
     ports:
       - "127.0.0.1:${SPARK_MCP_PORT:-8002}:8000"
     volumes:

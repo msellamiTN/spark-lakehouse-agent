@@ -14,9 +14,9 @@ from pyspark.sql import SparkSession
 mcp = FastMCP(
     "spark-lakehouse",
     instructions=(
-        "Read-only access to the local Spark lakehouse. Discover databases and tables, "
-        "inspect schemas, and run bounded SELECT queries. Do not assume MinIO is "
-        "integrated with Spark: S3A is a later-phase capability."
+        "Read-only access to the Spark Lakehouse. Discover databases and tables, inspect "
+        "schemas, and run bounded SELECT queries. Spark uses Hadoop S3A to access the "
+        "MinIO lakehouse bucket. Do not attempt writes through this MCP interface."
     ),
     host=os.getenv("MCP_HOST", "0.0.0.0"),
     port=int(os.getenv("MCP_PORT", "8000")),
@@ -87,6 +87,13 @@ def get_spark_session_info() -> str:
             "application_id": spark.sparkContext.applicationId,
             "application_name": spark.sparkContext.appName,
             "default_database": spark.catalog.currentDatabase(),
+            "lakehouse_storage": {
+                "filesystem": "s3a",
+                "s3a_configured": bool(
+                    spark.sparkContext._jsc.hadoopConfiguration().get("fs.s3a.impl")
+                ),
+                "endpoint": spark.sparkContext._jsc.hadoopConfiguration().get("fs.s3a.endpoint"),
+            },
             "access_mode": "read_only",
         },
         indent=2,

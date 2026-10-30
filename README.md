@@ -18,7 +18,7 @@ A containerized Spark Lakehouse and MCP platform for Data Engineering and Agenti
 | Tailscale | Containerized userspace networking | Private tailnet |
 | Tailscale Serve | HTTPS 443, configured from JSON | Tailnet only; Funnel disabled |
 
-Phase 1 provides the infrastructure and MCP interfaces. Retail ingestion, Spark S3A/MinIO integration, CrewAI orchestration, and Streamlit dashboards remain later phases.
+MinIO is the canonical object-storage layer in the logical Lakehouse design (Raw → Bronze → Silver → Gold), with Spark intended to process data through S3A. Important deployment-status note: the current Compose runtime still mounts a local ./lakehouse workspace into Spark/Jupyter and does not yet configure Spark S3A access to MinIO. Complete and validate that connector before treating the target flow as operational. Retail ingestion, CrewAI orchestration, and Streamlit dashboards remain later phases.
 
 ## 2. Architecture
 
@@ -26,7 +26,7 @@ The following high-resolution SVG is the **canonical deployment architecture** f
 
 ![Spark Lakehouse Agent Platform — Phase 1 professional architecture](docs/diagrams/phase-1-architecture.svg)
 
-[Open the full-resolution SVG](docs/diagrams/phase-1-architecture.svg) · [Read the detailed architecture document](docs/ARCHITECTURE.md)
+[Open the deployment SVG](docs/diagrams/phase-1-architecture.svg) · [Open the logical MinIO + Spark Lakehouse SVG](docs/diagrams/logical-lakehouse-minio-spark.svg) · [Read the detailed architecture document](docs/ARCHITECTURE.md)
 
 **Remote endpoints** (replace the tailnet suffix with the actual name shown by `tailscale status`):
 
@@ -34,6 +34,12 @@ The following high-resolution SVG is the **canonical deployment architecture** f
 - MinIO MCP: `https://spark-lakehouse-agent.<tailnet>.ts.net/minio/mcp`
 
 Tailscale Serve routes both paths over HTTPS 443. The MCP services are not exposed on the OVH public interface.
+
+### Logical data architecture — MinIO is the data lake
+
+![Logical Lakehouse data architecture: MinIO Raw, Bronze, Silver, Gold zones processed by Spark](docs/diagrams/logical-lakehouse-minio-spark.svg)
+
+All four Medallion zones are logical prefixes in the persistent MinIO `lakehouse` bucket. Spark is the transformation engine and accesses those prefixes through `s3a://lakehouse/...`. The diagram describes the target data flow; the current Compose deployment still needs S3A connector configuration and end-to-end validation before this integration can be considered active.
 
 ## 3. Prerequisites
 

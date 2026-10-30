@@ -82,6 +82,40 @@ Environment variables:
 
 If the MCP-specific credentials are blank, the development configuration falls back to the MinIO root credentials. Do not use that fallback outside an isolated local lab.
 
+### Example least-privilege MinIO policy
+
+For a read-only MCP identity, an illustrative policy for the `lakehouse` bucket is:
+
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": ["s3:ListBucket"],
+      "Resource": ["arn:aws:s3:::lakehouse"]
+    },
+    {
+      "Effect": "Allow",
+      "Action": ["s3:GetObject"],
+      "Resource": ["arn:aws:s3:::lakehouse/*"]
+    }
+  ]
+}
+```
+
+If controlled agent output writes are approved, add `s3:PutObject` only for the designated output prefix:
+
+```json
+{
+  "Effect": "Allow",
+  "Action": ["s3:PutObject"],
+  "Resource": ["arn:aws:s3:::lakehouse/agent-outputs/*"]
+}
+```
+
+Treat these snippets as a starting policy, then test the policy against the exact MinIO release and identity setup in use. The MinIO policy is the authoritative permission boundary; the MCP allowlist and prefix checks are additional application safeguards.
+
 ### MinIO safety controls
 
 - Bucket access is restricted by `MINIO_MCP_ALLOWED_BUCKETS` (default: `lakehouse`).

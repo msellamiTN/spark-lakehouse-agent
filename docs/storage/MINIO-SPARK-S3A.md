@@ -76,6 +76,7 @@ The read-only configuration file `infrastructure/spark/spark-defaults.conf` sets
 
 - `fs.s3a.impl=org.apache.hadoop.fs.s3a.S3AFileSystem`
 - `fs.s3a.endpoint=http://minio:9000` (Docker-internal endpoint)
+- `fs.s3a.endpoint.region=us-east-1` (explicit signing region, matching the MinIO client configuration)
 - `fs.s3a.path.style.access=true` (required for this MinIO endpoint style)
 - TLS disabled only on the private Docker bridge; use HTTPS if the object endpoint crosses a network boundary
 - AWS SDK environment-variable credentials provider
@@ -108,7 +109,7 @@ The validation suite includes `notebooks/validate_minio_s3a.py`. It:
 5. Reads the Parquet dataset back through S3A and verifies the rows.
 6. Deletes only that unique validation prefix.
 
-The test requires ListBucket, GetObject, PutObject and DeleteObject permissions for the validation prefix. It does not modify Raw/Bronze/Silver/Gold datasets. A passing validation confirms the driver and distributed executor path; it does not validate production throughput, HA, catalog transactions or multi-tenant isolation.
+The test waits for MinIO readiness and requires ListBucket, GetObject, PutObject and DeleteObject permissions for the validation prefix. It does not modify Raw/Bronze/Silver/Gold datasets. A passing validation confirms the driver and distributed executor path; it does not validate production throughput, HA, catalog transactions or multi-tenant isolation.
 
 ## 6. Canonical object layout
 

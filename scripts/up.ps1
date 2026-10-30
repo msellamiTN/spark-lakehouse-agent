@@ -7,6 +7,14 @@ $sparkImageLine = Get-Content ".env" | Where-Object { $_ -match "^\s*SPARK_IMAGE
 if (-not $sparkImageLine -or $sparkImageLine -notmatch "spark-lakehouse-s3a:3.5.6") {
     throw "Set SPARK_IMAGE=spark-lakehouse-s3a:3.5.6 in .env."
 }
+$hadoopLine = Get-Content ".env" | Where-Object { $_ -match "^\s*HADOOP_VERSION=" } | Select-Object -First 1
+if ($hadoopLine -and $hadoopLine -notmatch "HADOOP_VERSION=3\.3\.4") {
+    throw "HADOOP_VERSION must remain 3.3.4 for this Spark base image."
+}
+$awsSdkLine = Get-Content ".env" | Where-Object { $_ -match "^\s*AWS_SDK_BUNDLE_VERSION=" } | Select-Object -First 1
+if ($awsSdkLine -and $awsSdkLine -notmatch "AWS_SDK_BUNDLE_VERSION=1\.12\.262") {
+    throw "AWS_SDK_BUNDLE_VERSION must remain 1.12.262 for hadoop-aws 3.3.4."
+}
 foreach ($name in @("SPARK_S3A_ACCESS_KEY", "SPARK_S3A_SECRET_KEY")) {
     $line = Get-Content ".env" | Where-Object { $_ -match "^\s*$name=" } | Select-Object -First 1
     if (-not $line -or $line -match "replace-") {

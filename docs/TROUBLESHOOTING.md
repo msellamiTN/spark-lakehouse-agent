@@ -276,3 +276,28 @@ Do not prune volumes or remove Docker data directories without confirming backup
 - [ ] Whether issue reproduces on loopback or only through Tailscale
 
 Never attach .env, Tailscale auth keys, MinIO secrets, or unredacted authorization headers.
+
+
+## 9. OVH deployment incident record — MinIO bucket access
+
+**Observed failure sequence and confirmed recovery:**
+
+| Check | Observed result | Interpretation |
+|---|---|---|
+| MinIO live/ready health | HTTP 200 | MinIO process and HTTP endpoint were reachable |
+| Root ListBuckets | HTTP 200, empty bucket list | Root credentials authenticated; no buckets existed |
+| Root HeadBucket(lakehouse) | HTTP 404 | Configured bucket was absent |
+| MCP HeadBucket(lakehouse) | HTTP 403 | MCP identity did not have usable access |
+| MCP ListBuckets | InvalidAccessKeyId | MCP access key was not recognized |
+| MCP HeadBucket after credential correction and bucket provisioning | HTTP 200 | MCP credentials and bucket access now work |
+| Remote MCP list_buckets | accessible=true, http_status=200 | Tailscale → Serve → Nginx → MinIO MCP → MinIO bucket check passed |
+
+**What this incident teaches:**
+
+- MinIO container health and S3 authorization are separate checks.
+- Bucket absence and invalid MCP credentials were independent faults; fixing only one would not have completed recovery.
+- The MinIO MCP list_buckets tool checks the configured allowlist and returns per-bucket diagnostics. It does not enumerate every bucket in the account.
+- The successful HeadBucket and list_buckets checks validate bucket access, not object listing, object reads, writes, or Spark S3A integration.
+- The credential alignment used for recovery is a temporary lab diagnostic measure. Replace it with a dedicated least-privilege MinIO service identity before treating the environment as a shared or production-like service.
+
+**Current validation boundary:** bucket-level access is confirmed. The next operational checks are list_objects, object metadata/read, an explicitly approved write/read round trip, and later Spark S3A integration as a separate Phase 2 task.

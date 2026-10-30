@@ -6,7 +6,7 @@ This directory contains the architecture assets for the Spark Lakehouse Agent Pl
 
 | Asset | Format | Purpose | Status |
 |---|---|---|---|
-| [Phase 1 deployment architecture](phase-1-architecture.svg) | SVG | Presentation-ready deployment topology for the local Docker Compose environment | Current Phase 1 baseline |
+| [Phase 1 deployment architecture](phase-1-architecture.svg) | SVG | Deployment topology for Spark, MinIO, both MCP servers, agent endpoints and storage boundaries | Current Phase 1 baseline |
 
 The editable Mermaid diagrams are maintained in the root [README](../../README.md):
 - Deployment topology: Spark, JupyterLab, Ollama, MinIO, Spark MCP, MinIO MCP, network boundaries, host endpoints and mounts.

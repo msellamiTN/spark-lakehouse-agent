@@ -8,7 +8,7 @@ pass() { echo "PASS: $*"; }
 docker compose config --quiet || fail "Compose configuration is invalid"
 pass "Compose configuration"
 
-for svc in spark-master spark-worker-1 spark-worker-2 jupyter ollama minio; do
+for svc in spark-master spark-worker-1 spark-worker-2 jupyter ollama minio spark-mcp minio-mcp; do
   state="$(docker compose ps --status running --services | grep -Fx "$svc" || true)"
   [[ -n "$state" ]] || fail "$svc is not running"
   if [[ "$svc" == "minio" ]]; then
@@ -55,7 +55,7 @@ PY
 pass "MinIO HTTP health endpoint"
 
 echo
-echo "All Phase 1 infrastructure checks passed."
+echo "All Phase 1 infrastructure and MCP service checks passed."
 echo "Open:"
 echo "  Spark Master:  http://localhost:8080"
 echo "  Worker 1:      http://localhost:8081"
@@ -63,3 +63,5 @@ echo "  Worker 2:      http://localhost:8082"
 echo "  JupyterLab:    http://localhost:8888"
 echo "  Ollama API:    http://localhost:11434"
 echo "  MinIO Console: http://localhost:9001"
+echo "  Spark MCP:     http://localhost:8002/mcp"
+echo "  MinIO MCP:     http://localhost:8003/mcp"

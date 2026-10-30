@@ -12,6 +12,7 @@ The custom Spark image is built from the pinned Apache Spark base image and adds
 | Hadoop client | 3.3.4 | Version bundled with this Spark image; build fails if the expected client JARs are absent |
 | `hadoop-aws` | 3.3.4 | Must match Hadoop client exactly |
 | `aws-java-sdk-bundle` | 1.12.262 | Dependency declared by `hadoop-aws:3.3.4` |
+| `wildfly-openssl` | 1.0.7 | Runtime dependency declared by `hadoop-aws:3.3.4`; default JSSE TLS remains in use |
 
 Do not upgrade `hadoop-aws` independently. Hadoop's S3A connector and Hadoop client libraries must use identical versions; mismatches can cause linkage errors such as `NoSuchMethodError`. The build intentionally checks the Hadoop client JAR names before downloading the S3A dependencies.
 

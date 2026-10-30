@@ -137,11 +137,13 @@ MINIO_ROOT_USER=<your-minio-admin-user>
 MINIO_ROOT_PASSWORD=<a-long-random-password>
 SPARK_S3A_ACCESS_KEY=<dedicated-spark-minio-service-account-key>
 SPARK_S3A_SECRET_KEY=<dedicated-spark-minio-service-account-secret>
+SPARK_BASE_IMAGE=apache/spark:3.5.6-scala2.12-java17-python3-ubuntu
+SPARK_IMAGE=spark-lakehouse-s3a:3.5.6
 TS_AUTHKEY=tskey-auth-<your-tagged-reusable-key>
 TS_HOSTNAME=spark-lakehouse-agent
 ```
 
-Create a dedicated MinIO Spark service account and attach the bucket-scoped policy in [the S3A/MinIO runbook](docs/storage/MINIO-SPARK-S3A.md). Keep its access key and secret in the two `SPARK_S3A_*` variables; do not reuse MinIO root credentials. Use the actual variable names and any additional required settings already present in your `.env.example`. Do not paste secrets into chat, commit `.env`, or give the platform Tailscale auth key to students. The Tailscale key must be a reusable, non-ephemeral key restricted to `tag:spark-lakehouse-mcp`. If you need to replace a key, create the replacement in the Tailscale admin console and update only the `TS_AUTHKEY` value.
+Create a dedicated MinIO Spark service account and attach the bucket-scoped policy in [the S3A/MinIO runbook](docs/storage/MINIO-SPARK-S3A.md). Existing deployments must update `SPARK_IMAGE` to `spark-lakehouse-s3a:3.5.6` and add the new `SPARK_BASE_IMAGE` and `SPARK_S3A_*` variables; the existing `.env` is intentionally not overwritten. Keep its access key and secret in the two `SPARK_S3A_*` variables; do not reuse MinIO root credentials. Use the actual variable names and any additional required settings already present in your `.env.example`. Do not paste secrets into chat, commit `.env`, or give the platform Tailscale auth key to students. The Tailscale key must be a reusable, non-ephemeral key restricted to `tag:spark-lakehouse-mcp`. If you need to replace a key, create the replacement in the Tailscale admin console and update only the `TS_AUTHKEY` value.
 
 Check that the key is not still the sample placeholder without printing the secret:
 

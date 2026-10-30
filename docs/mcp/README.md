@@ -13,13 +13,15 @@ MCP host ports are bound to loopback by Docker Compose. Remote students use the 
 
 ## 2. Build and start
 
-From the repository root:
+From the repository root, start the complete default platform (including Tailscale and Tailscale Serve):
 
 ```bash
-docker compose up -d --build spark-mcp minio-mcp
-docker compose ps spark-mcp minio-mcp
-docker compose logs -f spark-mcp minio-mcp
+docker compose up -d --build
+docker compose ps
+docker compose logs -f spark-mcp minio-mcp mcp-gateway tailscale
 ```
+
+For the complete environment setup and remote access flow, see [the default Docker Compose deployment guide](DOCKER-TAILSCALE-STUDENT-LAB.md).
 
 Spark MCP depends on the healthy Spark master and both workers. MinIO MCP starts after the MinIO container has started. Both MCP servers are built from `infrastructure/mcp/Dockerfile` and run as the non-root `spark` user.
 

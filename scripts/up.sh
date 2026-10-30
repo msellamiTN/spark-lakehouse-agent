@@ -9,6 +9,10 @@ spark_image_value="$(sed -n 's/^SPARK_IMAGE=//p' .env | tail -n 1)"
   echo "ERROR: Set SPARK_IMAGE=spark-lakehouse-s3a:3.5.6 in .env."
   exit 1
 }
+hadoop_version_value="$(sed -n 's/^HADOOP_VERSION=//p' .env | tail -n 1)"
+aws_sdk_version_value="$(sed -n 's/^AWS_SDK_BUNDLE_VERSION=//p' .env | tail -n 1)"
+[[ -z "$hadoop_version_value" || "$hadoop_version_value" == "3.3.4" ]] || { echo "ERROR: HADOOP_VERSION must remain 3.3.4 for this Spark base image."; exit 1; }
+[[ -z "$aws_sdk_version_value" || "$aws_sdk_version_value" == "1.12.262" ]] || { echo "ERROR: AWS_SDK_BUNDLE_VERSION must remain 1.12.262 for hadoop-aws 3.3.4."; exit 1; }
 for key in SPARK_S3A_ACCESS_KEY SPARK_S3A_SECRET_KEY; do
   value="$(sed -n "s/^${key}=//p" .env | tail -n 1)"
   [[ -n "$value" && "$value" != replace-* ]] || {

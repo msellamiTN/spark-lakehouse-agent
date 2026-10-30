@@ -100,27 +100,50 @@ flowchart TB
 
 **Compose topology note:** Tailscale uses network_mode service:mcp-gateway. It shares the gateway network namespace by design. Do not configure a separate container hostname for this sidecar; TS_HOSTNAME sets the Tailscale device name.
 
-## 3. Logical data lifecycle and phase boundary
+## 3. Logical Lakehouse data architecture — MinIO as the data lake
 
-~~~mermaid
-flowchart LR
-  SRC["Training / sample data"] --> ING["Notebook or Spark ingestion"]
-  ING --> FS[("Shared lakehouse filesystem")]
-  FS --> RAW["Raw"] --> BRZ["Bronze"] --> SLV["Silver"] --> GLD["Gold"]
-  GLD --> CON["Analytics / consumers"]
-  subgraph PHASE2["Phase 2 — planned, not deployed by Phase 1"]
-    S3A["Spark S3A + compatible Hadoop AWS dependencies"]
-    BUCKET[("MinIO lakehouse bucket")]
-    S3A -. "planned object-store path" .-> BUCKET
-  end
-~~~
+The **logical target architecture** uses MinIO as the canonical and durable Lakehouse storage layer. Raw, Bronze, Silver, and Gold are logical zones represented by object prefixes in the MinIO bucket `lakehouse`; they are not separate storage engines or local directories. Apache Spark performs distributed ingestion and transformation, reading and writing objects through the S3A connector.
 
-⚠️ **Critical distinction:** Phase 1 Spark and Jupyter share the host-mounted /lakehouse path. MinIO is deployed independently with persistent storage and exposed through MinIO MCP. Spark S3A dependencies, bucket provisioning automation, and direct Spark-to-MinIO read/write integration are Phase 2. Co-deployment of Spark and MinIO does not mean Spark is already integrated with MinIO.
+![Logical Lakehouse data architecture — MinIO and Spark](diagrams/logical-lakehouse-minio-spark.svg)
 
-Storage domains:
-- **Filesystem workspace:** lakehouse/raw, bronze, silver, gold, checkpoints.
-- **Object storage:** MinIO buckets, initially allowlisted as lakehouse; bucket and identity permissions require explicit provisioning.
-- **Service state:** MinIO, Ollama, Jupyter configuration, and Tailscale named volumes.
+[Open the logical Lakehouse SVG at full resolution](diagrams/logical-lakehouse-minio-spark.svg)
+
+### Medallion zones and object layout
+
+```text
+s3a://lakehouse/
+├── raw/                  # Source-aligned landing; preserve original payloads
+├── bronze/               # Ingested, traceable, schema-enriched datasets
+├── silver/               # Cleansed, deduplicated, conformed datasets
+├── gold/                 # Business-ready aggregates, data products and features
+├── checkpoints/          # Structured Streaming checkpoints (separate prefixes)
+├── quarantine/           # Invalid or rejected records
+└── agent-outputs/        # Optional agent-produced artifacts; separately governed
+```
+
+| Zone | Purpose | Typical operations | Recommended controls |
+|---|---|---|---|
+| Raw | Durable source landing | Capture files/events with source and ingestion metadata | Restrict mutation; retain source provenance |
+| Bronze | Replayable, source-aligned tables | Parse, add ingestion timestamps, normalize technical types | Schema tracking; idempotent ingestion |
+| Silver | Trusted, reusable domain data | Validate, deduplicate, standardize, join and apply quality rules | Data-quality gates; restricted write ownership |
+| Gold | Consumption-oriented products | Aggregate, calculate KPIs, publish curated tables/features | Product-level access; freshness and SLA checks |
+
+**Storage and processing contract**
+- MinIO owns durable lake objects; Spark is the distributed compute engine.
+- Spark uses `s3a://lakehouse/<zone>/<domain>/<dataset>/` paths. Configure a compatible Hadoop AWS/S3A connector and AWS SDK version matching the Spark/Hadoop runtime.
+- Use Parquet as the baseline columnar format. Delta Lake or Apache Iceberg require their own compatible runtime/catalog configuration; do not assume table-format transaction semantics from plain Parquet.
+- Configure MinIO endpoint, path-style access, TLS policy, region, and credentials through runtime configuration/secret injection. Never embed credentials in notebooks or source control.
+- Use a dedicated Spark service identity with only the required bucket/prefix permissions. Keep MinIO MCP on a separate, more restricted identity; agent write access must remain disabled unless explicitly approved.
+- Streaming checkpoints belong in dedicated persistent prefixes and must not be mixed with curated table data.
+- A catalog/metastore, lineage, data-quality framework, retention/lifecycle policies, versioning and backup are governance capabilities to select and configure; they are not implied by the presence of MinIO.
+
+### Deployment status — do not confuse target design with current runtime
+
+The checked-in Compose configuration currently mounts `./lakehouse:/lakehouse` into Spark and Jupyter, and MinIO persists independently in `minio_data`. The current Spark services do not yet declare S3A-specific environment/configuration or a direct MinIO dependency. Therefore, the SVG above documents the **intended logical data architecture**, not proof that Spark-to-MinIO read/write is already enabled in the deployed stack.
+
+Until S3A integration and an end-to-end read/write test are completed, treat the local `/lakehouse` mount as the current lab workspace, not as the canonical target data lake. The migration acceptance test is: Spark writes a Parquet dataset to `s3a://lakehouse/bronze/... `, reads it back from MinIO, transforms it, writes Silver/Gold outputs, and the MinIO MCP can list and inspect only the explicitly authorized objects.
+
+Service-state volumes (MinIO, Ollama, Jupyter configuration, and Tailscale identity) remain separate from Lakehouse data objects.
 
 ## 4. MCP capability boundaries
 

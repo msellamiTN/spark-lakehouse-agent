@@ -343,7 +343,7 @@ The SQL tool rejects non-SELECT statements, semicolons, SQL comments and a set o
 | Tool | Capability |
 |---|---|
 | `list_buckets` | Check accessibility of buckets in the configured allowlist |
-| `list_objects` | List up to 500 keys under an allowed prefix |
+| `list_objects` | List up to 500 keys per page with continuation-token pagination |
 | `get_object_metadata` | Inspect object metadata without downloading the object |
 | `read_text_object` | Read bounded UTF-8 text, JSON, CSV, YAML or Markdown objects |
 | `write_text_object` | Write a small text artifact when writes are explicitly enabled |

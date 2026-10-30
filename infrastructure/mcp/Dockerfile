@@ -14,8 +14,11 @@ COPY tests /app/tests
 
 USER spark
 
+# The Spark distribution ships PySpark and Py4J as ZIP libraries; expose both
+# to Python instead of installing a second, potentially mismatched PySpark package.
 ENV PYTHONUNBUFFERED=1 \
     PYSPARK_PYTHON=python3 \
-    SPARK_HOME=/opt/spark
+    SPARK_HOME=/opt/spark \
+    PYTHONPATH=/opt/spark/python/lib/pyspark.zip:/opt/spark/python/lib/py4j-0.10.9.7-src.zip
 
 EXPOSE 8000 8001

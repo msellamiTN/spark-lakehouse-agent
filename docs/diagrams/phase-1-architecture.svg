@@ -57,7 +57,7 @@
 <text x="580" y="400" class="body">Notebooks · experiments</text>
 <text x="580" y="424" class="code">localhost:8888</text>
 <text x="560" y="466" class="muted">Spark client → spark-master:7077</text>
-<path d="M512 374 H522" class="flow"/>
+<path d="M560 376 H500" class="flow"/>
 
 <rect x="842" y="252" width="290" height="242" rx="16" class="panel"/>
 <text x="870" y="287" class="cardTitle">03  Ollama</text>
@@ -99,12 +99,9 @@
 <text x="850" y="700" class="body">• Optional text writes · disabled by default · prefix restricted</text>
 
 <!-- Active connections -->
-<path d="M297 494 V515 H430 V531" class="flow"/>
-<path d="M677 494 V515 H600 V531" class="flow"/>
-<path d="M982 494 V515 H1140 V531" class="flow"/>
 <path d="M512 376 H522" class="flow"/>
-<path d="M430 535 V515 H297" class="flow"/>
-<path d="M1140 494 V515 H1150 V531" class="flow"/>
+<path d="M430 535 V515 H297 V498" class="flow"/>
+<path d="M1150 535 V515 H1332 V498" class="flow"/>
 
 <!-- Shared filesystem -->
 <rect x="82" y="790" width="1430" height="150" rx="16" class="panel"/>
@@ -116,9 +113,6 @@
 <rect x="706" y="874" width="220" height="44" rx="8" class="object"/><text x="816" y="902" text-anchor="middle" class="cardTitle">CHECKPOINTS</text>
 <text x="970" y="888" class="muted">Phase 1 data path: shared local filesystem</text>
 <text x="970" y="910" class="muted">MinIO persists independently in its named volume</text>
-<path d="M297 494 V770 H400 V786" class="flow"/>
-<path d="M677 494 V770 H600 V786" class="flow"/>
-<path d="M430 755 V770 H800 V786" class="flow"/>
 
 <!-- Agent client outside the Compose network -->
 <rect x="82" y="1010" width="1430" height="96" rx="16" fill="#edf2fb" stroke="#9aafc7" stroke-width="1.4"/>

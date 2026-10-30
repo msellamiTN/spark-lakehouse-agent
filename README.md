@@ -31,42 +31,42 @@ Use this diagram as the editable logical view. The SVG above is the presentation
 
 ```mermaid
 flowchart TB
-  subgraph HOST["LOCAL HOST · DOCKER COMPOSE NETWORK"]
-    direction TB
-    subgraph SPARK["SPARK STANDALONE CLUSTER"]
+  subgraph HOST["LOCAL WORKSTATION"]
+    AGENT["Compatible agent client<br/>not deployed in Phase 1"]
+    subgraph NETWORK["DOCKER COMPOSE NETWORK · spark-lakehouse-network"]
       direction TB
-      MASTER["Spark Master<br/>RPC 7077 · UI 8080"]
-      WORKER1["Worker 01<br/>2 cores · 3 GiB · UI 8081"]
-      WORKER2["Worker 02<br/>2 cores · 3 GiB · UI 8082"]
-      MASTER -->|"schedule / manage"| WORKER1
-      MASTER -->|"schedule / manage"| WORKER2
+      subgraph SPARK["SPARK STANDALONE CLUSTER"]
+        direction TB
+        MASTER["Spark Master<br/>RPC 7077 · UI 8080"]
+        WORKER1["Worker 01<br/>2 cores · 3 GiB · UI 8081"]
+        WORKER2["Worker 02<br/>2 cores · 3 GiB · UI 8082"]
+        MASTER -->|"schedule / manage"| WORKER1
+        MASTER -->|"schedule / manage"| WORKER2
+      end
+      JUPYTER["JupyterLab<br/>PySpark client · UI 8888"]
+      OLLAMA["Ollama<br/>Qwen 2.5 3B · API 11434"]
+      LAKE[("Shared host volume<br/>/lakehouse: raw · bronze · silver · gold · checkpoints")]
+      MINIO[("MinIO object storage<br/>S3 API 9000 · Console 9001")]
+      SPARK_MCP["Spark MCP<br/>Streamable HTTP · 8000"]
+      MINIO_MCP["MinIO MCP<br/>Streamable HTTP · 8001"]
+      JUPYTER -->|"Spark client"| MASTER
+      SPARK_MCP -->|"Spark client"| MASTER
+      MINIO_MCP -->|"S3 API"| MINIO
+      JUPYTER <-->|"shared volume mount"| LAKE
+      WORKER1 <-->|"shared volume mount"| LAKE
+      WORKER2 <-->|"shared volume mount"| LAKE
+      SPARK_MCP <-->|"shared volume mount"| LAKE
     end
-    JUPYTER["JupyterLab<br/>PySpark client · UI 8888"]
-    OLLAMA["Ollama<br/>Qwen 2.5 3B · API 11434"]
-    LAKE[("Shared host volume<br/>/lakehouse: raw · bronze · silver · gold · checkpoints")]
-    MINIO[("MinIO object storage<br/>S3 API 9000 · Console 9001")]
-    JUPYTER -->|"Spark connection"| MASTER
-    JUPYTER <-->|"shared volume mount"| LAKE
-    WORKER1 <-->|"shared volume mount"| LAKE
-    WORKER2 <-->|"shared volume mount"| LAKE
+    AGENT -->|"localhost:8002 / MCP"| SPARK_MCP
+    AGENT -->|"localhost:8003 / MCP"| MINIO_MCP
   end
-  SPARK_MCP["Spark MCP<br/>Streamable HTTP · 8000"]
-  MINIO_MCP["MinIO MCP<br/>Streamable HTTP · 8001"]
-  AGENT["Compatible Agent Runtime"]
-  JUPYTER -->|"Spark client"| MASTER
-  SPARK_MCP -->|"Spark client"| MASTER
-  MINIO_MCP -->|"S3 API"| MINIO
-  AGENT -->|"MCP / Streamable HTTP"| SPARK_MCP
-  AGENT -->|"MCP / Streamable HTTP"| MINIO_MCP
-  OLLAMA -.->|"LLM inference endpoint"| AGENT
   LAKE -.->|"S3A connector + bucket configuration · Phase 2"| MINIO
   classDef compute fill:#eaf2fb,stroke:#527fa8,color:#17324d
   classDef workspace fill:#f1edfa,stroke:#8b78b6,color:#33234e
   classDef storage fill:#fff5e5,stroke:#bd8731,color:#4b3512
   classDef model fill:#eaf5ef,stroke:#47845e,color:#183c27
   class MASTER,WORKER1,WORKER2 compute
-  class JUPYTER workspace
-  class SPARK_MCP,MINIO_MCP,AGENT workspace
+  class JUPYTER,SPARK_MCP,MINIO_MCP,AGENT workspace
   class LAKE,MINIO storage
   class OLLAMA model
 ```

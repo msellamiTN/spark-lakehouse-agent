@@ -550,6 +550,7 @@ Review logs before sharing them; remove tokens, passwords, and other sensitive v
 
 - [Phase 1 technical deployment notes](docs/PHASE-1.md)
 - [Spark and MinIO MCP integration guide](docs/mcp/README.md)
+- [Secure remote MCP access with Tailscale](docs/mcp/REMOTE-ACCESS.md)
 - [Architecture diagram standards](docs/diagrams/README.md)
 - [Docker Compose configuration](docker-compose.yml)
 - [Environment template](.env.example)

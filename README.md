@@ -442,11 +442,63 @@ sequenceDiagram
 
 Official references: [MCP Python SDK](https://py.sdk.modelcontextprotocol.io/v1/) · [Streamable HTTP transport](https://py.sdk.modelcontextprotocol.io/v1/).
 
-### Secure remote MCP access with Tailscale (Ubuntu)
+### Secure remote MCP access from Windows and Google Colab
 
-The default loopback bindings intentionally prevent direct LAN or Internet access. To connect an agent on another trusted device, use a private Tailscale tailnet rather than opening Docker ports on your router.
+The OVH VM can expose the two MCP transports to authorized Tailscale devices without exposing the Docker ports to the public Internet. The OVH public IPv4 address and the Tailscale address serve different purposes:
 
-Install and authenticate Tailscale on the Ubuntu host:
+- **OVH public IPv4:** public hosting/administration address; not used for private MCP traffic.
+- **Tailscale IP:** private tailnet address assigned to the Ubuntu VM.
+- **Tailscale MagicDNS:** the VM's tailnet hostname, for example `hadoop.<tailnet>.ts.net`.
+
+Do **not** point the Tailscale-managed `.ts.net` hostname to the OVH public IPv4.
+
+#### Remote access architecture
+
+```mermaid
+flowchart TB
+  subgraph CLIENTS["Remote clients"]
+    WIN["Windows PC"]
+    CHROME["Chrome / MCP client"]
+    COLAB["Google Colab runtime"]
+    PY["Python MCP client"]
+    SOCKS["SOCKS5 proxy<br/>127.0.0.1:1055"]
+    WIN --> CHROME
+    CHROME -->|"Windows Tailscale client"| TAILWIN["Tailnet interface"]
+    COLAB --> PY
+    PY --> SOCKS
+  end
+
+  subgraph TAILNET["Private Tailscale tailnet"]
+    TAILWIN --> WG["Encrypted Tailscale connectivity"]
+    SOCKS --> USERSPACE["Tailscale userspace networking"]
+    USERSPACE --> WG
+  end
+
+  subgraph OVH["OVH Ubuntu VM"]
+    WG --> DNS["MagicDNS hostname<br/>Tailscale IP: 100.x.y.z"]
+    subgraph SERVE["Tailscale Serve · tailnet only"]
+      DNS --> H443["HTTPS :443 /mcp"]
+      DNS --> H8443["HTTPS :8443 /mcp"]
+    end
+    subgraph DOCKER["Docker Compose · loopback-only host ports"]
+      H443 --> S["Spark MCP<br/>127.0.0.1:8002"]
+      H8443 --> M["MinIO MCP<br/>127.0.0.1:8003"]
+      S --> SPARK["Spark cluster"]
+      M --> MINIO["MinIO"]
+    end
+    PUBLIC["OVH public IPv4<br/>not used for private MCP"]
+  end
+```
+
+**Connection paths**
+
+1. Windows installs the Tailscale desktop client and signs in to the same tailnet. Chrome then uses the VM's MagicDNS hostname.
+2. Google Colab is not automatically part of the tailnet. Its runtime starts Tailscale in userspace mode and uses a local SOCKS5 proxy. The MCP HTTP transport must explicitly support/configure that proxy.
+3. On OVH, Tailscale Serve terminates HTTPS and forwards to the existing loopback-only Docker listeners. Docker Compose bindings remain unchanged.
+
+#### OVH Ubuntu setup
+
+Install and authenticate Tailscale (skip installation if already configured):
 
 ```bash
 sudo apt-get update
@@ -456,18 +508,17 @@ sudo systemctl enable --now tailscaled
 sudo tailscale up
 ```
 
-Open the authentication URL printed by `tailscale up`, sign in, and authorize the Ubuntu host. Install Tailscale and sign in to the **same tailnet** on the remote agent/client device as well.
-
-Verify that the daemon is running and the host is connected:
+Authenticate using the URL printed by `tailscale up`, then verify:
 
 ```bash
-tailscale version
-systemctl status tailscaled --no-pager
 tailscale status
 tailscale ip -4
+docker compose ps spark-mcp minio-mcp
 ```
 
-Only after both devices are connected to the same tailnet, publish the loopback-only MCP services through Tailscale Serve:
+Enable **MagicDNS** and **HTTPS Certificates** in the [Tailscale DNS admin page](https://login.tailscale.com/admin/dns). Review the Certificate Transparency notice before enabling certificates.
+
+Publish the local MCP listeners through Tailscale Serve:
 
 ```bash
 sudo tailscale serve --bg --https=443 127.0.0.1:8002
@@ -475,16 +526,50 @@ sudo tailscale serve --bg --https=8443 127.0.0.1:8003
 sudo tailscale serve status
 ```
 
-Use the exact HTTPS hostnames and paths reported by `tailscale serve status` in the remote MCP client:
+Use the exact hostname reported by `tailscale serve status`:
 
-- Spark MCP: `https://<your-tailscale-dns-name>/mcp`
-- MinIO MCP: `https://<your-tailscale-dns-name>:8443/mcp`
+- Spark MCP: `https://<actual-tailnet-hostname>/mcp`
+- MinIO MCP: `https://<actual-tailnet-hostname>:8443/mcp`
 
-Do not guess the Tailscale DNS name. Keep Docker's `127.0.0.1` port bindings unchanged. Do **not** enable Tailscale Funnel, configure public router port forwarding, or expose Jupyter, Spark UIs/RPC, Ollama, or MinIO directly. Tailscale network membership is not a substitute for application-level MCP authentication and authorization; restrict tailnet access with ACLs/grants and use least-privilege MinIO credentials.
+#### Windows and Chrome
 
-If the shell reports `tailscale: command not found`, the Tailscale client is not installed (or is not on the command path). Complete the installation and `tailscale up` steps above before running any `tailscale serve` command.
+1. Install [Tailscale for Windows](https://tailscale.com/download/windows).
+2. Sign in with an account authorized for the same tailnet as the OVH VM.
+3. Confirm both devices appear in the [Tailscale Machines admin page](https://login.tailscale.com/admin/machines).
+4. Ensure **Use Tailscale DNS settings** is enabled and MagicDNS is enabled in the admin console.
+5. In PowerShell, substitute the exact hostname from the OVH Serve status:
 
-For the full setup, remote-client configuration, verification and removal instructions, see the [Secure remote MCP access with Tailscale guide](docs/mcp/REMOTE-ACCESS.md). Official installation reference: [Tailscale on Linux](https://tailscale.com/docs/install/linux).
+```powershell
+tailscale status
+tailscale ip -4
+tailscale ping hadoop
+Resolve-DnsName hadoop.<tailnet>.ts.net
+Test-NetConnection hadoop.<tailnet>.ts.net -Port 443
+Test-NetConnection hadoop.<tailnet>.ts.net -Port 8443
+```
+
+If Chrome reports `DNS_PROBE_FINISHED_NXDOMAIN`, verify same-tailnet membership and MagicDNS, enable Tailscale DNS settings in the Windows client, run `ipconfig /flushdns`, and retry DNS resolution. Test the VM's Tailscale IP separately to distinguish DNS from connectivity/ACL issues.
+
+#### Google Colab
+
+Colab needs its **own temporary Tailscale node**; the Windows client does not tunnel Colab traffic. Use an ephemeral auth key stored in Colab Secrets, start Tailscale with `--tun=userspace-networking` and `--socks5-server=127.0.0.1:1055`, and configure the MCP SDK HTTP transport to use SOCKS5. Use `curl --socks5-hostname` for DNS/HTTPS smoke tests. The complete copyable notebook cells, auth-key setup, ACL guidance, proxy caveats, and troubleshooting are in [Remote MCP access from Windows and Google Colab](docs/mcp/COLAB-ACCESS.md).
+
+#### Security requirements
+
+- Keep Docker Compose MCP bindings on `127.0.0.1`; do not change them to `0.0.0.0`.
+- Do not open OVH public firewall ports 8002/8003 or expose them directly.
+- Do not enable Tailscale Funnel for these data-access services.
+- Do not publish JupyterLab, Spark UIs/RPC, MinIO API/console, or Ollama through these Serve routes.
+- Restrict tailnet access to approved devices and required destination ports (TCP 443 and 8443).
+- Use least-privilege MinIO MCP credentials. MCP writes remain disabled by default.
+- Tailscale provides private connectivity and encrypted transport; it does not add application-level MCP authentication or per-tool authorization.
+- Keep host secrets in the untracked `.env`; keep Colab auth keys in Colab Secrets. Never commit either.
+
+For full setup, architecture, Windows DNS troubleshooting, Colab notebook cells, MCP transport verification, and cleanup, see:
+- [Secure remote MCP access with Tailscale](docs/mcp/REMOTE-ACCESS.md)
+- [Remote MCP access from Windows and Google Colab](docs/mcp/COLAB-ACCESS.md)
+- [Remote MCP access from Windows and Google Colab](docs/mcp/COLAB-ACCESS.md)
+- [Tailscale userspace networking documentation](https://tailscale.com/docs/concepts/userspace-networking)
 
 ---
 

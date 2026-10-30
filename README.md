@@ -538,7 +538,7 @@ Review logs before sharing them; remove tokens, passwords, and other sensitive v
 
 | Phase | Scope |
 |---|---|
-| **Phase 1 — Infrastructure** | Docker Compose, Spark cluster, JupyterLab, Ollama, MinIO, validation |
+| **Phase 1 — Infrastructure and MCP interfaces** | Docker Compose, Spark cluster, JupyterLab, Ollama, MinIO, Spark MCP, MinIO MCP, validation |
 | **Phase 2 — Lakehouse data** | Retail dataset ingestion, Bronze/Silver/Gold transformations, Parquet, data quality, MinIO/S3A integration |
 | **Phase 3 — Agent services** | CrewAI orchestration, Supervisor, Data Engineer, Data Analyst, Visualization Engineer |
 | **Phase 4 — Analytics application** | Streamlit application, Plotly dashboards, agent-assisted analytics |

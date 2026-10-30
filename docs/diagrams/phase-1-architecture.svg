@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1800" height="1320" viewBox="0 0 1800 1320" role="img" aria-labelledby="title desc">
 <title id="title">Spark Lakehouse Agent Platform — Professional deployment architecture</title>
-<desc id="desc">Detailed Phase 1 deployment architecture showing remote users connecting over a private Tailscale tailnet to a Dockerized Tailscale node, Tailscale Serve, Nginx gateway, Spark MCP and MinIO MCP. The private Docker network contains Spark Standalone, JupyterLab, Ollama and MinIO. Persistent filesystem and named volumes are shown. Spark S3A integration is explicitly marked Phase 2.</desc>
+<desc id="desc">Deployment architecture showing private Tailscale ingress, Nginx, Spark MCP, MinIO MCP, Spark Standalone, JupyterLab, Ollama and MinIO. Spark uses a pinned Hadoop S3A connector to read and write the canonical MinIO lakehouse bucket. The local lakehouse bind mount is transitional scratch/import space.</desc>
 <defs>
  <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#f4f7fb"/><stop offset="1" stop-color="#e8eef5"/></linearGradient>
  <linearGradient id="header" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#102a43"/><stop offset="1" stop-color="#1e5276"/></linearGradient>
@@ -31,7 +31,7 @@
 <text x="78" y="108" class="h1">Spark Lakehouse Agent Platform</text>
 <text x="80" y="135" class="sub">Phase 1 · OVH Ubuntu · Docker Compose v2 · Private MCP access through Tailscale</text>
 <rect x="1510" y="68" width="206" height="42" rx="21" fill="#d9eee2"/>
-<text x="1613" y="94" text-anchor="middle" class="tag" fill="#24633f">PHASE 1 · DEPLOYED BASELINE</text>
+<text x="1613" y="94" text-anchor="middle" class="tag" fill="#24633f">PHASE 1 · COMPOSE CONFIGURED</text>
 
 <!-- Remote access domain -->
 <rect x="48" y="184" width="1704" height="190" rx="18" fill="url(#tail)" stroke="#91afd0" stroke-width="1.5"/>
@@ -101,6 +101,7 @@
 <text x="132" y="797" class="desc">• Database, table and schema discovery</text>
 <text x="132" y="824" class="desc">• Single bounded SELECT · row limit enforced</text>
 <text x="132" y="870" class="mono">SPARK_MASTER=spark://spark-master:7077</text>
+<text x="132" y="891" class="small">S3A → MinIO · read-only SQL MCP</text>
 
 <rect x="620" y="662" width="490" height="246" rx="14" class="white"/>
 <rect x="620" y="662" width="490" height="10" rx="5" fill="#16827d"/>
@@ -133,10 +134,10 @@
 <text x="132" y="1092" class="small">Spark client → spark-master:7077</text>
 
 <rect x="628" y="958" width="500" height="174" rx="14" class="white"/>
-<text x="656" y="994" class="node">MinIO object storage</text>
+<text x="656" y="994" class="node">MinIO Lakehouse data lake</text>
 <text x="656" y="1022" class="desc">S3 API :9000 · Console :9001</text>
-<text x="656" y="1050" class="mono">minio:9000 · bucket allowlist: lakehouse</text>
-<text x="656" y="1092" class="small">Independent object store · persistent minio_data volume</text>
+<text x="656" y="1050" class="mono">minio:9000 · canonical bucket: lakehouse</text>
+<text x="656" y="1092" class="small">Raw / Bronze / Silver / Gold · persistent minio_data volume</text>
 
 <rect x="1152" y="958" width="528" height="174" rx="14" class="white"/>
 <text x="1180" y="994" class="node">Ollama</text>
@@ -154,6 +155,8 @@
 <path d="M1110 838 H1136" class="solid" opacity="0"/>
 <path d="M360 908 V934 H350 V958" class="solid"/>
 <path d="M865 908 V934 H865 V958" class="solid"/>
+<path d="M1408 908 V934 H878 V958" class="solid"/>
+<text x="1150" y="929" text-anchor="middle" class="tiny">Spark S3A · Parquet read / write</text>
 <path d="M1408 908 V934 H1416 V958" class="solid"/>
 <path d="M604 1044 H628" class="solid" opacity="0"/>
 
@@ -162,10 +165,10 @@
 <text x="102" y="1232" class="band">D  /  PERSISTENCE &amp; DATA DOMAINS</text>
 <rect x="470" y="1214" width="330" height="54" rx="9" class="amber"/>
 <text x="635" y="1237" text-anchor="middle" class="node">./lakehouse → /lakehouse</text>
-<text x="635" y="1257" text-anchor="middle" class="tiny">Shared bind mount · Spark + Jupyter + Spark MCP</text>
+<text x="635" y="1257" text-anchor="middle" class="tiny">Transitional scratch/import workspace only</text>
 <rect x="818" y="1214" width="250" height="54" rx="9" class="amber"/>
 <text x="943" y="1237" text-anchor="middle" class="node">minio_data</text>
-<text x="943" y="1257" text-anchor="middle" class="tiny">Object data volume</text>
+<text x="943" y="1257" text-anchor="middle" class="tiny">Canonical Lakehouse objects</text>
 <rect x="1086" y="1214" width="250" height="54" rx="9" class="amber"/>
 <text x="1211" y="1237" text-anchor="middle" class="node">ollama_models</text>
 <text x="1211" y="1257" text-anchor="middle" class="tiny">Model cache / weights</text>
@@ -175,6 +178,6 @@
 
 <!-- phase boundary footnote -->
 <rect x="48" y="1298" width="1704" height="1" fill="#cad5df"/>
-<text x="68" y="1314" class="small">PHASE BOUNDARY: Spark uses the shared local /lakehouse filesystem in Phase 1. Spark S3A ↔ MinIO integration is Phase 2 (dashed/roadmap only).</text>
+<text x="68" y="1314" class="small">STORAGE: Spark S3A ↔ MinIO is configured in Compose; rebuild images and pass the distributed Parquet round-trip test on each host. Local /lakehouse is scratch only.</text>
 <text x="1730" y="1314" text-anchor="end" class="tiny">DATA2AI · ARCHITECTURE BASELINE · SINGLE-HOST LAB, NOT HA PRODUCTION</text>
 </svg>

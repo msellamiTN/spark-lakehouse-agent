@@ -168,6 +168,7 @@ Do not use the sample credentials for a shared environment. Keep `.env` private:
 | `JUPYTER_TOKEN` | Must be changed | JupyterLab authentication token |
 | `OLLAMA_PORT` | `11434` | Ollama API host port |
 | `OLLAMA_MODEL` | `qwen2.5:3b` | Default model name for later integration |
+| `MINIO_IMAGE` | `cgr.dev/chainguard/minio:latest` | Maintained MinIO-compatible container image |
 | `MINIO_API_PORT` | `9000` | MinIO S3 API host port |
 | `MINIO_CONSOLE_PORT` | `9001` | MinIO web console host port |
 | `MINIO_ROOT_USER` | `minioadmin` | MinIO administrator username |
@@ -509,7 +510,9 @@ docker compose up -d --build
 | Spark workers do not become healthy | Inspect `docker compose logs spark-master spark-worker-1 spark-worker-2`; check available RAM and worker resource settings. |
 | Jupyter is unavailable | Check `docker compose logs jupyter`, wait for its health check, and confirm the token in `.env`. |
 | Jupyter authentication fails | Use the exact `JUPYTER_TOKEN` configured in `.env`; recreate the Jupyter container after changing it with `docker compose up -d --force-recreate jupyter`. |
-| Image build or pull fails | Check internet access, Docker Hub connectivity, disk space, and Docker daemon status; retry the build. |
+| MinIO image pull fails (`pull access denied for minio/minio`) | The old upstream Docker Hub image is no longer a reliable pull source. Ensure `.env` sets `MINIO_IMAGE=cgr.dev/chainguard/minio:latest`, then run `docker pull cgr.dev/chainguard/minio:latest` and retry `docker compose up -d`. |
+| MinIO reports data-directory permission errors | The Chainguard image runs as UID/GID `65532`. Inspect `docker compose logs minio` and the `minio_data` volume ownership before changing permissions; do not delete the volume. |
+| Image build or pull fails | Check internet access, registry connectivity, disk space, and Docker daemon status; retry the build. |
 | Ollama model pull is slow/fails | Check disk space and network access; retry `docker compose exec ollama ollama pull qwen2.5:3b`. |
 | Containers exit unexpectedly | Run `docker compose ps -a` and inspect the relevant service logs. |
 | Windows Docker/WSL issue | Start Docker Desktop, confirm the WSL 2 backend and distribution integration, then retry from PowerShell. |

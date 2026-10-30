@@ -91,7 +91,7 @@ docker compose down
 The current Compose configuration includes the Spark S3A integration:
 - The custom Spark runtime adds `hadoop-aws:3.3.4` and `aws-java-sdk-bundle:1.12.262`, matching the Hadoop 3.3.4 client in the pinned Spark base image.
 - Spark uses the MinIO endpoint `http://minio:9000`, path-style S3 requests and environment-injected credentials.
-- The dedicated Spark identity is passed to Jupyter, Spark MCP and both worker containers.
+- The existing MinIO root credentials are passed automatically to Jupyter, Spark MCP and both worker containers; no additional Spark credential variables are required.
 - The `lakehouse` bucket is the canonical data lake. Raw, Bronze, Silver and Gold are object prefixes; Parquet is the baseline data format.
 - Run `./scripts/validate.sh` after rebuilding. The S3A integration check writes and reads a small distributed Parquet dataset and removes its unique validation prefix.
 

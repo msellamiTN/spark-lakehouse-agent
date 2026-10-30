@@ -85,8 +85,15 @@ docker compose down
 - Ollama is reachable from other containers at `http://ollama:11434`.
 - Spark is reachable from containers at `spark://spark-master:7077`.
 
-## Important scope boundary
+## MinIO-backed Lakehouse data path
 
-MinIO is deployed and persistent in Phase 1. Spark's S3A connector and MinIO bucket integration are deliberately deferred until Phase 2, where Hadoop AWS and AWS SDK dependency versions will be aligned with the Spark distribution. Phase 1 writes Parquet to the shared local `/lakehouse` volume.
+The current Compose configuration includes the Spark S3A integration:
+- The custom Spark runtime adds `hadoop-aws:3.3.4` and `aws-java-sdk-bundle:1.12.262`, matching the Hadoop 3.3.4 client in the pinned Spark base image.
+- Spark uses the MinIO endpoint `http://minio:9000`, path-style S3 requests and environment-injected credentials.
+- The dedicated Spark identity is passed to Jupyter, Spark MCP and both worker containers.
+- The `lakehouse` bucket is the canonical data lake. Raw, Bronze, Silver and Gold are object prefixes; Parquet is the baseline data format.
+- Run `./scripts/validate.sh` after rebuilding. The S3A integration check writes and reads a small distributed Parquet dataset and removes its unique validation prefix.
 
-CrewAI and Streamlit are not started in Phase 1; they will be added after the Spark and storage foundation passes validation. The Spark MCP and MinIO MCP services are available as agent-facing interfaces, but no agent runtime is bundled.
+**Runtime acceptance is still required on each host.** A committed Compose configuration does not prove that the image has been rebuilt, the service account is correctly provisioned, or the round-trip test passes. See [the S3A/MinIO runbook](storage/MINIO-SPARK-S3A.md).
+
+The shared local `/lakehouse` bind mount remains temporarily for legacy scratch/import workflows only; it is not the canonical lake. CrewAI and Streamlit are not started in this phase. Spark MCP and MinIO MCP remain separate agent-facing interfaces; no agent runtime is bundled.

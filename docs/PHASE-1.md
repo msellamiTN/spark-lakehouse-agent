@@ -47,7 +47,9 @@ Copy-Item .env.example .env
 docker compose exec ollama ollama pull qwen2.5:3b
 ```
 
-## Remote student access\n\nThe default Compose deployment includes a Tailscale container and declarative Tailscale Serve configuration. Students connect from Windows, macOS, or Linux using their own Tailscale client. Remote endpoints are `https://<platform-fqdn>/spark/mcp` and `https://<platform-fqdn>/minio/mcp`. See [the default deployment guide](mcp/DOCKER-TAILSCALE-STUDENT-LAB.md).\n\n## MCP agent interfaces
+## Remote student access\n\nThe default Compose deployment includes a Tailscale container and declarative Tailscale Serve configuration. Students connect from Windows, macOS, or Linux using their own Tailscale client. Remote endpoints are `https://<platform-fqdn>/spark/mcp` and `https://<platform-fqdn>/minio/mcp`. See [the default deployment guide](mcp/DOCKER-TAILSCALE-STUDENT-LAB.md).
+
+## MCP agent interfaces
 
 Phase 1 includes two Streamable HTTP MCP servers for compatible agents:
 

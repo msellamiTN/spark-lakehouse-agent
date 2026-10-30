@@ -7,6 +7,15 @@
 
 The platform is a single-host training and engineering environment. Compose manages service lifecycle; a private Docker bridge provides east-west connectivity; Tailscale Serve provides tailnet-only HTTPS ingress; Nginx routes requests to separate MCP servers.
 
+### Canonical visual architecture
+
+The following **hand-authored SVG deployment view is the primary architecture artifact**. It is designed for architecture reviews and documentation export; Mermaid diagrams below are supporting editable views for selected flows, not a substitute for the full deployment drawing.
+
+![Spark Lakehouse Agent Platform — Phase 1 professional deployment architecture](diagrams/phase-1-architecture.svg)
+
+[Open the SVG at full resolution](diagrams/phase-1-architecture.svg)
+
+
 ~~~mermaid
 flowchart TB
   subgraph CLIENTS["Learners and agent clients"]

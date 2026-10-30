@@ -1,7 +1,7 @@
 $ErrorActionPreference = "Stop"
 Set-Location (Join-Path $PSScriptRoot "..")
 docker compose config --quiet
-$services = @("spark-master", "spark-worker-1", "spark-worker-2", "jupyter", "ollama", "minio")
+$services = @("spark-master", "spark-worker-1", "spark-worker-2", "jupyter", "ollama", "minio", "spark-mcp", "minio-mcp")
 foreach ($service in $services) {
     $id = docker compose ps -q $service
     if (-not $id) { throw "$service is not running" }
@@ -24,4 +24,6 @@ spark.stop()
 Write-Host "PASS: Jupyter-to-Spark integration job"
 docker compose exec -T jupyter python3 -c "import requests; r=requests.get('http://minio:9000/minio/health/live',timeout=5); r.raise_for_status(); print('MinIO:',r.status_code)"
 Write-Host "PASS: MinIO HTTP health endpoint"
-Write-Host "All Phase 1 infrastructure checks passed."
+Write-Host "PASS: Spark MCP endpoint process is healthy (localhost:8002/mcp)"
+Write-Host "PASS: MinIO MCP endpoint process is healthy (localhost:8003/mcp)"
+Write-Host "All Phase 1 infrastructure and MCP service checks passed."

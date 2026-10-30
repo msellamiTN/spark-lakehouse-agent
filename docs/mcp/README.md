@@ -198,6 +198,12 @@ The Spark-to-MinIO S3A integration, bucket lifecycle automation, data catalog/me
 - Review MCP tool calls and outputs in the agent host; MCP does not itself provide business approval or user consent.
 - Use service logs for diagnostics: `docker compose logs -f spark-mcp minio-mcp`.
 
+## 9. Operational troubleshooting and field notes
+
+For symptom-to-cause diagnosis, MinIO S3 error interpretation, credential comparison, safe bucket creation, MCP protocol failures, Spark/Jupyter connectivity, and non-destructive recovery procedures, see the [Operations Troubleshooting Runbook](../TROUBLESHOOTING.md).
+
+**MinIO diagnostic reminder:** `list_buckets` checks the configured allowlist only. An HTTP 200 MCP response can contain an inaccessible bucket diagnostic; inspect the nested tool payload and S3 error. A MinIO health endpoint returning 200 does not prove that the bucket exists or that the MCP identity is authorized. Never remove the MinIO volume to resolve an authorization or missing-bucket problem.
+
 ## References
 
 - [MCP Python SDK v1.x documentation](https://py.sdk.modelcontextprotocol.io/v1/)

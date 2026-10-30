@@ -66,7 +66,7 @@ Environment variables:
 | Tool | Input | Behaviour |
 |---|---|---|
 | `list_buckets` | none | Checks accessibility of buckets in the configured allowlist |
-| `list_objects` | `bucket`, optional `prefix`, `max_keys` | Lists at most 500 object keys |
+| `list_objects` | `bucket`, optional `prefix`, `max_keys` | Lists at most 500 object keys per page and returns a continuation token |
 | `get_object_metadata` | `bucket`, `key` | Reads object metadata only |
 | `read_text_object` | `bucket`, `key` | Reads small UTF-8 text, JSON, CSV, YAML or Markdown objects |
 | `write_text_object` | `bucket`, `key`, `content`, optional `content_type` | Writes a bounded text artifact if writes are enabled |

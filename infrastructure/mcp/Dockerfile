@@ -1,5 +1,5 @@
 ARG SPARK_IMAGE=apache/spark:3.5.6-scala2.12-java17-python3-ubuntu
-FROM \${SPARK_IMAGE}
+FROM ${SPARK_IMAGE}
 
 USER root
 WORKDIR /app

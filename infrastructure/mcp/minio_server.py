@@ -95,13 +95,16 @@ def list_buckets() -> str:
 
 
 @mcp.tool()
-def list_objects(bucket: str, prefix: str = "", max_keys: int = 100) -> str:
-    """List objects under a prefix in an allowed bucket. Results are bounded to 1–500 keys."""
+def list_objects(bucket: str, prefix: str = "", max_keys: int = 100, continuation_token: str = "") -> str:
+    """List objects under an allowed prefix. Use the returned continuation token to fetch the next page."""
     name = _bucket(bucket)
     safe_prefix = _safe_prefix(prefix)
     if max_keys < 1 or max_keys > 500:
         raise ValueError("max_keys must be between 1 and 500.")
-    response = _client().list_objects_v2(Bucket=name, Prefix=safe_prefix, MaxKeys=max_keys)
+    request = {"Bucket": name, "Prefix": safe_prefix, "MaxKeys": max_keys}
+    if continuation_token:
+        request["ContinuationToken"] = continuation_token
+    response = _client().list_objects_v2(**request)
     objects = [
         {
             "key": item["Key"],
@@ -113,7 +116,8 @@ def list_objects(bucket: str, prefix: str = "", max_keys: int = 100) -> str:
     ]
     return json.dumps(
         {"bucket": name, "prefix": safe_prefix, "objects": objects,
-         "is_truncated": response.get("IsTruncated", False)},
+         "is_truncated": response.get("IsTruncated", False),
+         "next_continuation_token": response.get("NextContinuationToken")},
         indent=2,
     )
 

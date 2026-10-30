@@ -95,9 +95,7 @@ flowchart LR
   class GOLD gold
   class CONSUMERS future
 ```
-The Spark master and workers, JupyterLab, Ollama, and MinIO communicate over the private Docker network. Published host ports are bound to `127.0.0.1`, so the interfaces are intended for local access. The dashed MinIO connection is a **planned Phase 2 integration**, not an active Spark S3A data path in Phase 1.
-
-The Spark master and workers, JupyterLab, Ollama, and MinIO communicate over the private Docker network. Published host ports are bound to `127.0.0.1`, so the interfaces are intended for local access.
+Spark, JupyterLab, Ollama, MinIO and both MCP services communicate over the private Docker network. Published host ports are bound to `127.0.0.1` for local access. The dashed lakehouse-to-MinIO connection is the planned Phase 2 S3A integration, not an active Spark-to-MinIO data path in Phase 1. The compatible agent client shown in the diagram is external to this Compose deployment.
 
 ## 2. Prerequisites
 

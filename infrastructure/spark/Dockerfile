@@ -18,7 +18,7 @@ RUN set -eux; \
       [ ! -e "$jar" ] || [ "$jar" = "/opt/spark/jars/aws-java-sdk-bundle-${AWS_SDK_BUNDLE_VERSION}.jar" ] || { echo "Conflicting AWS SDK bundle: $jar"; exit 1; }; \
     done; \
     for jar in /opt/spark/jars/wildfly-openssl-*.jar; do \
-      [ ! -e "$jar" ] || [ "$jar" = "/opt/spark/jars/wildfly-openssl-1.0.7.jar" ] || { echo "Conflicting WildFly OpenSSL JAR: $jar"; exit 1; }; \
+      [ ! -e "$jar" ] || [ "$jar" = "/opt/spark/jars/wildfly-openssl-1.0.7.Final.jar" ] || { echo "Conflicting WildFly OpenSSL JAR: $jar"; exit 1; }; \
     done
 
 # Hadoop 3.3.4 hadoop-aws declares AWS SDK v1 bundle 1.12.262.
@@ -29,7 +29,7 @@ RUN python3 /tmp/download-s3a-jars.py \
     && chown spark:spark \
        "/opt/spark/jars/hadoop-aws-${HADOOP_VERSION}.jar" \
        "/opt/spark/jars/aws-java-sdk-bundle-${AWS_SDK_BUNDLE_VERSION}.jar" \
-       "/opt/spark/jars/wildfly-openssl-1.0.7.jar" \
+       "/opt/spark/jars/wildfly-openssl-1.0.7.Final.jar" \
     && rm /tmp/download-s3a-jars.py
 
 USER spark

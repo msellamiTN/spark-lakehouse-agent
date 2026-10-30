@@ -8,18 +8,27 @@
 
 ## Primary architecture drawing
 
-The canonical architecture is a hand-authored, high-resolution SVG with grouped trust boundaries, ingress routing, runtime services, MCP capabilities, persistence domains, and explicit Phase 1 / Phase 2 scope.
+The deployment architecture and logical data architecture are maintained as separate hand-authored, high-resolution SVGs. The logical Lakehouse view treats MinIO as the canonical data lake and Spark as the S3A-based processing engine; the deployment view records the currently deployed services and phase boundary.
 
 ![Phase 1 deployment architecture](phase-1-architecture.svg)
 
 [Open SVG at full resolution](phase-1-architecture.svg)
 
+## Logical Lakehouse data architecture
+
+![Logical Lakehouse — MinIO data lake with Spark S3A processing](logical-lakehouse-minio-spark.svg)
+
+[Open logical Lakehouse SVG at full resolution](logical-lakehouse-minio-spark.svg)
+
+The `lakehouse` bucket contains logical `raw/`, `bronze/`, `silver/` and `gold/` prefixes. Spark reads and writes those zones through S3A. This is the target logical design; see the deployment-status note in [ARCHITECTURE.md](../ARCHITECTURE.md) before assuming the connector is active in the current Compose runtime.
+
 ## Diagram catalogue
 
 | Asset | Format | Purpose | Status |
 |---|---|---|---|
-| [Phase 1 deployment architecture](phase-1-architecture.svg) | SVG | Detailed deployment topology, private ingress, MCP routing, services and persistence | Primary visual architecture |
-| Supporting flow views | Mermaid | Selected data lifecycle and operational sequences | Supplementary; maintained in [ARCHITECTURE.md](../ARCHITECTURE.md) |
+| [Phase 1 deployment architecture](phase-1-architecture.svg) | SVG | Detailed deployment topology, private ingress, MCP routing, services and persistence | Current deployment view |
+| [Logical Lakehouse — MinIO + Spark](logical-lakehouse-minio-spark.svg) | SVG | Raw → Bronze → Silver → Gold object zones, S3A processing and consumers | Logical target architecture |
+| Supporting flow views | Mermaid | Selected operational sequences | Supplementary; maintained in [ARCHITECTURE.md](../ARCHITECTURE.md) |
 
 ## Source-of-truth rules
 
@@ -38,7 +47,7 @@ The canonical architecture is a hand-authored, high-resolution SVG with grouped 
 - JupyterLab connects to spark://spark-master:7077.
 - Spark workers and Jupyter share the host-mounted /lakehouse directory.
 - Ollama is deployed; agent/application integration is not implemented in Phase 1.
-- MinIO is persistent. Spark S3A dependencies, bucket provisioning and Spark-to-MinIO access are Phase 2.
+- MinIO is persistent and is the canonical storage layer in the logical Lakehouse target. Direct Spark S3A access remains unconfigured in the current Compose runtime until the integration work and end-to-end validation are complete.
 - Published service ports bind to loopback; remote MCP access uses Tailscale Serve.
 
 ## Change checklist

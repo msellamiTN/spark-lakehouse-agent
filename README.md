@@ -22,38 +22,11 @@ Phase 1 provides the infrastructure and MCP interfaces. Retail ingestion, Spark 
 
 ## 2. Architecture
 
-```mermaid
-flowchart TB
-  subgraph STUDENTS["Student devices · Windows / macOS / Linux"]
-    CLIENT["MCP client / IDE / agent"]
-    TSCLIENT["Tailscale client"]
-    CLIENT --> TSCLIENT
-  end
-  TSCLIENT -->|"private HTTPS · TCP 443"| TS
-  subgraph OVH["OVH Ubuntu · Docker Compose"]
-    subgraph NETNS["Shared network namespace"]
-      TS["Tailscale container"]
-      SERVE["Tailscale Serve"]
-      GW["Nginx MCP Gateway"]
-      TS --> SERVE --> GW
-    end
-    subgraph DOCKER["Private Docker bridge network"]
-      GW -->|"/spark/mcp"| SMCP["Spark MCP"]
-      GW -->|"/minio/mcp"| MMCP["MinIO MCP"]
-      SMCP --> MASTER["Spark Master + 2 Workers"]
-      JUPYTER["JupyterLab"] --> MASTER
-      MMCP --> MINIO["MinIO"]
-      OLLAMA["Ollama"]
-      LAKE[("Lakehouse data volume")]
-      MASTER --> LAKE
-      JUPYTER --> LAKE
-    end
-    VOLUMES[("Persistent Docker volumes")]
-    TS --> VOLUMES
-    MINIO --> VOLUMES
-    OLLAMA --> VOLUMES
-  end
-```
+The following high-resolution SVG is the **canonical deployment architecture** for Phase 1. It documents the private access path, Tailscale sidecar/network namespace, Nginx MCP routing, compute and storage services, persistence domains, and the explicit Phase 2 boundary.
+
+![Spark Lakehouse Agent Platform — Phase 1 professional architecture](docs/diagrams/phase-1-architecture.svg)
+
+[Open the full-resolution SVG](docs/diagrams/phase-1-architecture.svg) · [Read the detailed architecture document](docs/ARCHITECTURE.md)
 
 **Remote endpoints** (replace the tailnet suffix with the actual name shown by `tailscale status`):
 

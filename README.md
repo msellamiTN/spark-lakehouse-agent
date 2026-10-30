@@ -39,7 +39,7 @@ Tailscale Serve routes both paths over HTTPS 443. The MCP services are not expos
 
 ![Logical Lakehouse data architecture: MinIO Raw, Bronze, Silver, Gold zones processed by Spark](docs/diagrams/logical-lakehouse-minio-spark.svg)
 
-All four Medallion zones are logical prefixes in the persistent MinIO `lakehouse` bucket. Spark is the transformation engine and accesses those prefixes through `s3a://lakehouse/...`. The diagram describes the target data flow; the current Compose deployment still needs S3A connector configuration and end-to-end validation before this integration can be considered active.
+All four Medallion zones are logical prefixes in the persistent MinIO `lakehouse` bucket. Spark is the transformation engine and accesses those prefixes through `s3a://lakehouse/...`. The Compose configuration includes the S3A connector and MinIO endpoint; rebuild the custom images and pass the distributed Parquet round-trip test before considering the integration operational on a given host.
 
 ## 3. Prerequisites
 
@@ -135,11 +135,13 @@ Ensure these variables exist and contain real values:
 JUPYTER_TOKEN=<a-long-random-secret>
 MINIO_ROOT_USER=<your-minio-admin-user>
 MINIO_ROOT_PASSWORD=<a-long-random-password>
+SPARK_S3A_ACCESS_KEY=<dedicated-spark-minio-service-account-key>
+SPARK_S3A_SECRET_KEY=<dedicated-spark-minio-service-account-secret>
 TS_AUTHKEY=tskey-auth-<your-tagged-reusable-key>
 TS_HOSTNAME=spark-lakehouse-agent
 ```
 
-Use the actual variable names and any additional required settings already present in your `.env.example`. Do not paste secrets into chat, commit `.env`, or give the platform Tailscale auth key to students. The Tailscale key must be a reusable, non-ephemeral key restricted to `tag:spark-lakehouse-mcp`. If you need to replace a key, create the replacement in the Tailscale admin console and update only the `TS_AUTHKEY` value.
+Create a dedicated MinIO Spark service account and attach the bucket-scoped policy in [the S3A/MinIO runbook](docs/storage/MINIO-SPARK-S3A.md). Keep its access key and secret in the two `SPARK_S3A_*` variables; do not reuse MinIO root credentials. Use the actual variable names and any additional required settings already present in your `.env.example`. Do not paste secrets into chat, commit `.env`, or give the platform Tailscale auth key to students. The Tailscale key must be a reusable, non-ephemeral key restricted to `tag:spark-lakehouse-mcp`. If you need to replace a key, create the replacement in the Tailscale admin console and update only the `TS_AUTHKEY` value.
 
 Check that the key is not still the sample placeholder without printing the secret:
 

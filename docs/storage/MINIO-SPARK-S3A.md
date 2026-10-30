@@ -12,7 +12,7 @@ The custom Spark image is built from the pinned Apache Spark base image and adds
 | Hadoop client | 3.3.4 | Version bundled with this Spark image; build fails if the expected client JARs are absent |
 | `hadoop-aws` | 3.3.4 | Must match Hadoop client exactly |
 | `aws-java-sdk-bundle` | 1.12.262 | Dependency declared by `hadoop-aws:3.3.4` |
-| `wildfly-openssl` | 1.0.7 | Runtime dependency declared by `hadoop-aws:3.3.4`; default JSSE TLS remains in use |
+| `wildfly-openssl` | 1.0.7.Final | Optional runtime dependency declared by `hadoop-aws:3.3.4`; JSSE is explicitly selected, so native OpenSSL acceleration is not used |
 
 Do not upgrade `hadoop-aws` independently. Hadoop's S3A connector and Hadoop client libraries must use identical versions; mismatches can cause linkage errors such as `NoSuchMethodError`. The build intentionally checks the Hadoop client JAR names before downloading the S3A dependencies.
 
@@ -80,6 +80,7 @@ The read-only configuration file `infrastructure/spark/spark-defaults.conf` sets
 - `fs.s3a.endpoint.region=us-east-1` (explicit signing region, matching the MinIO client configuration)
 - `fs.s3a.path.style.access=true` (required for this MinIO endpoint style)
 - TLS disabled only on the private Docker bridge; use HTTPS if the object endpoint crosses a network boundary
+- `fs.s3a.ssl.channel.mode=default_jsse` to avoid depending on native OpenSSL compatibility
 - AWS SDK environment-variable credentials provider
 - Conservative connection, thread and multipart defaults
 

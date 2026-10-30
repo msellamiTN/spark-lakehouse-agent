@@ -398,3 +398,15 @@ To remove all Serve configuration on the VM (including any unrelated routes), us
 - Tailscale auth keys: https://tailscale.com/kb/1085/auth-keys
 - Tailscale ACLs and grants: https://tailscale.com/kb/1018/acls
 - MCP Python SDK: https://py.sdk.modelcontextprotocol.io/v1/
+
+#### MCP HTTP Accept headers
+
+For Streamable HTTP, a POST request must advertise both response formats:
+
+```http
+Content-Type: application/json
+Accept: application/json, text/event-stream
+```
+
+A standalone GET that opens an SSE stream must use `Accept: text/event-stream`. A GET without that header can produce the server error `Not Acceptable: Client must accept text/event-stream`. This is an HTTP negotiation error, not evidence that Tailscale, Spark, or MinIO is down. A GET returning 405 can also be normal when the MCP server does not provide a standalone SSE stream; use POST initialize to validate MCP.
+

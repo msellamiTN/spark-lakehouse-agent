@@ -18,11 +18,11 @@ A containerized Spark Lakehouse and MCP platform for Data Engineering and Agenti
 | Tailscale | Containerized userspace networking | Private tailnet |
 | Tailscale Serve | HTTPS 443, configured from JSON | Tailnet only; Funnel disabled |
 
-MinIO is the canonical object-storage layer in the logical Lakehouse design (Raw → Bronze → Silver → Gold), with Spark intended to process data through S3A. Important deployment-status note: the current Compose runtime still mounts a local ./lakehouse workspace into Spark/Jupyter and does not yet configure Spark S3A access to MinIO. Complete and validate that connector before treating the target flow as operational. Retail ingestion, CrewAI orchestration, and Streamlit dashboards remain later phases.
+MinIO is the canonical object-storage layer for the Lakehouse (Raw → Bronze → Silver → Gold). The Compose configuration now builds a Spark image with the Hadoop S3A connector and configures Spark drivers/workers to access the MinIO `lakehouse` bucket. After creating the dedicated Spark MinIO service account, rebuild the images and run `./scripts/validate.sh` to verify distributed Parquet write/read. The local `./lakehouse` mount is retained only for transitional scratch/import workflows. Retail ingestion, CrewAI orchestration, and Streamlit dashboards remain later phases.
 
 ## 2. Architecture
 
-The following high-resolution SVG is the **canonical deployment architecture** for Phase 1. It documents the private access path, Tailscale sidecar/network namespace, Nginx MCP routing, compute and storage services, persistence domains, and the explicit Phase 2 boundary.
+The following high-resolution SVG is the **canonical deployment architecture** for Phase 1. It documents the private access path, Tailscale sidecar/network namespace, Nginx MCP routing, compute and storage services, the Spark S3A-to-MinIO path, and persistence domains.
 
 ![Spark Lakehouse Agent Platform — Phase 1 professional architecture](docs/diagrams/phase-1-architecture.svg)
 
@@ -301,18 +301,22 @@ The following ports are bound to host loopback only:
 
 Change host ports in `.env` if they conflict. Do not change loopback bindings to `0.0.0.0`.
 
-## 8. Lakehouse workspace
+## 8. Lakehouse object layout
+
+The canonical data path is the MinIO bucket `lakehouse`, accessed by Spark using Hadoop S3A:
 
 ```text
-lakehouse/
-├── raw/
-├── bronze/
-├── silver/
-├── gold/
-└── checkpoints/
+s3a://lakehouse/
+├── raw/<source>/<dataset>/
+├── bronze/<domain>/<dataset>/
+├── silver/<domain>/<dataset>/
+├── gold/<product>/<dataset>/
+├── checkpoints/<pipeline>/
+├── quarantine/<domain>/
+└── _system/validation/
 ```
 
-The shared `lakehouse/` directory is mounted into Spark and Jupyter containers. MinIO data, Ollama models, Jupyter configuration, and Tailscale identity use named Docker volumes.
+Parquet is the baseline data format. The local `./lakehouse:/lakehouse` mount remains temporarily for legacy scratch/import workflows; it is not the canonical data lake. MinIO persists all lake objects in the named `minio_data` volume. See [the Spark S3A ↔ MinIO runbook](docs/storage/MINIO-SPARK-S3A.md) for service-account policy, configuration, rebuild and validation.
 
 ## 9. Operations
 
@@ -345,6 +349,7 @@ docker compose up -d
 - [Platform architecture — deployment, data flow, security boundaries and decisions](docs/ARCHITECTURE.md)
 - [Operations troubleshooting and field notes](docs/TROUBLESHOOTING.md)
 - [Architecture diagrams](docs/diagrams/README.md)
+- [Spark S3A ↔ MinIO integration runbook](docs/storage/MINIO-SPARK-S3A.md)
 
 ---
 

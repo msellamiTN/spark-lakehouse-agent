@@ -2,7 +2,6 @@
 """End-to-end Spark S3A ↔ MinIO validation using a disposable test prefix."""
 
 import os
-import sys
 import time
 from urllib.request import urlopen
 from uuid import uuid4
@@ -101,11 +100,13 @@ def main() -> int:
         print("Test prefix:", test_uri)
         return 0
     finally:
-        if fs is not None and fs.exists(test_path):
-            if not fs.delete(test_path, True):
-                raise RuntimeError(f"Could not remove validation prefix {test_uri}")
-            print("Validation prefix cleaned up.")
-        spark.stop()
+        try:
+            if fs is not None and fs.exists(test_path):
+                if not fs.delete(test_path, True):
+                    raise RuntimeError(f"Could not remove validation prefix {test_uri}")
+                print("Validation prefix cleaned up.")
+        finally:
+            spark.stop()
 
 
 if __name__ == "__main__":

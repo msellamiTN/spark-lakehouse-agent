@@ -95,6 +95,6 @@ The current Compose configuration includes the Spark S3A integration:
 - The `lakehouse` bucket is the canonical data lake. Raw, Bronze, Silver and Gold are object prefixes; Parquet is the baseline data format.
 - Run `./scripts/validate.sh` after rebuilding. The S3A integration check writes and reads a small distributed Parquet dataset and removes its unique validation prefix.
 
-**Runtime acceptance is still required on each host.** A committed Compose configuration does not prove that the image has been rebuilt, the service account is correctly provisioned, or the round-trip test passes. See [the S3A/MinIO runbook](storage/MINIO-SPARK-S3A.md).
+**Runtime acceptance is still required on each host.** A committed Compose configuration does not prove that the image has been rebuilt, the `lakehouse` bucket exists, or the round-trip test passes. Create the bucket once in the MinIO Console; no separate Spark identity is provisioned. See [the S3A/MinIO runbook](storage/MINIO-SPARK-S3A.md).
 
 The shared local `/lakehouse` bind mount remains temporarily for legacy scratch/import workflows only; it is not the canonical lake. CrewAI and Streamlit are not started in this phase. Spark MCP and MinIO MCP remain separate agent-facing interfaces; no agent runtime is bundled.

@@ -90,49 +90,182 @@ Before first deployment, the tailnet administrator must:
 
 Students use their own identities. Never share the platform auth key with students. Tailscale Serve is tailnet-only and Funnel is disabled in the checked-in Serve configuration.
 
-## 5. Configure and deploy
+## 5. Configure and deploy (step by step)
 
-Clone the repository:
+This runbook assumes the platform is deployed on your OVH Ubuntu server. It is safe to use when updating an existing checkout: **keep your current `.env` and Docker volumes**.
+
+### Step 1 — Connect to the OVH server
+
+From your administrator workstation:
+
+```bash
+ssh <your-ovh-user>@<your-server-ip>
+```
+
+Then go to the repository directory. If you already cloned it, use that checkout:
+
+```bash
+cd ~/spark-lakehouse-agent
+```
+
+If this is a new server and the repository is not present yet:
 
 ```bash
 git clone https://github.com/msellamiTN/spark-lakehouse-agent.git
 cd spark-lakehouse-agent
 ```
 
-Create the local environment file:
+### Step 2 — Update the repository without overwriting secrets
 
-**Linux / macOS**
+For an existing deployment, first check whether you have local changes, then pull the latest committed version:
+
+```bash
+git status --short
+git pull --ff-only
+```
+
+If `git pull` refuses because you have local changes, stop and review them before proceeding; do not use `git reset --hard`.
+
+Confirm Docker and the Compose plugin are available:
+
+```bash
+docker --version
+docker compose version
+```
+
+### Step 3 — Create or update `.env`
+
+If `.env` does not exist yet:
+
 ```bash
 cp .env.example .env
+chmod 600 .env
 ```
 
-**Windows PowerShell**
-```powershell
-Copy-Item .env.example .env
+If `.env` already exists, **do not copy `.env.example` over it**. Preserve your existing Jupyter token, MinIO credentials, ports, and other settings.
+
+Open the file with your preferred editor:
+
+```bash
+nano .env
 ```
 
-Edit `.env` and set strong values for `JUPYTER_TOKEN`, `MINIO_ROOT_PASSWORD`, and the tagged `TS_AUTHKEY`. The file is excluded by `.gitignore`.
+Ensure these variables exist and contain real values:
 
-Validate and launch the complete platform:
+```dotenv
+JUPYTER_TOKEN=<a-long-random-secret>
+MINIO_ROOT_USER=<your-minio-admin-user>
+MINIO_ROOT_PASSWORD=<a-long-random-password>
+TS_AUTHKEY=tskey-auth-<your-tagged-reusable-key>
+TS_HOSTNAME=spark-lakehouse-agent
+```
+
+Use the actual variable names and any additional required settings already present in your `.env.example`. Do not paste secrets into chat, commit `.env`, or give the platform Tailscale auth key to students. The Tailscale key must be a reusable, non-ephemeral key restricted to `tag:spark-lakehouse-mcp`. If you need to replace a key, create the replacement in the Tailscale admin console and update only the `TS_AUTHKEY` value.
+
+Check that the key is not still the sample placeholder without printing the secret:
+
+```bash
+if ! grep -q '^TS_AUTHKEY=tskey-auth-' .env || grep -q 'REPLACE' .env; then
+  echo "ERROR: Set a real tagged TS_AUTHKEY in .env"
+  exit 1
+fi
+```
+
+### Step 4 — Check Tailscale admin prerequisites
+
+Before starting the container, confirm in the Tailscale admin console:
+
+1. MagicDNS is enabled.
+2. HTTPS Certificates are enabled.
+3. The tag `tag:spark-lakehouse-mcp` is defined and the auth key is permitted to use it.
+4. A grant/ACL permits the intended student identities or group to reach this platform node on TCP 443.
+5. Students will authenticate with their own Tailscale accounts; they do not use the server's auth key.
+
+### Step 5 — Validate the Compose configuration
+
+Run this from the repository root:
 
 ```bash
 docker compose config --quiet
+```
+
+If it reports a missing variable or invalid configuration, fix `.env` before continuing. Do not start the stack until this command succeeds.
+
+### Step 6 — Start the complete platform
+
+```bash
 docker compose up -d --build
 docker compose ps
 ```
 
-This starts the full platform, including Tailscale and Serve. There is no second Compose file and no manual host-level `tailscale serve` command.
+The default Compose file starts Spark, JupyterLab, Ollama, MinIO, both MCP servers, the Nginx gateway, and the Tailscale sidecar. **Do not add an overlay Compose file and do not run a host-level `tailscale serve` command.**
 
-Inspect the private node and Serve routes:
+### Step 7 — Check the Tailscale node and HTTPS routes
 
 ```bash
+docker compose logs --tail=100 tailscale mcp-gateway
 docker compose exec tailscale tailscale status
 docker compose exec tailscale tailscale serve status
+curl -fsS http://127.0.0.1:8088/healthz
 ```
 
-The Tailscale container uses userspace networking, so it does not require `/dev/net/tun`, `NET_ADMIN`, or a host `tailscaled` service. Its identity is persisted in the `tailscale_state` named volume.
+The Tailscale node should appear online, and Serve should show HTTPS on port 443 proxying to the local Nginx gateway. The gateway health check should return successfully.
+
+Read the exact MagicDNS hostname shown by the Tailscale status output. The expected name is normally:
+
+```text
+spark-lakehouse-agent.<your-tailnet>.ts.net
+```
+
+Do not guess the tailnet suffix; use the hostname actually assigned by Tailscale.
+
+### Step 8 — Run the platform validation
+
+```bash
+./scripts/validate.sh
+```
+
+Review any failed check before giving students access. Also inspect service logs when needed:
+
+```bash
+docker compose logs --tail=100 spark-master spark-worker-1 spark-worker-2
+docker compose logs --tail=100 spark-mcp minio-mcp
+```
+
+### Step 9 — Test from a student device
+
+On a Windows, macOS, or Linux student device:
+
+1. Install the official Tailscale client.
+2. Sign in using the student's own account.
+3. Confirm the device is connected to the authorized tailnet.
+4. Configure the MCP client with the exact host name confirmed in Step 7 and the paths in [Student connection](#6-student-connection).
+5. Test MCP `initialize` and `tools/list` from the MCP client. A browser GET by itself is not a valid end-to-end MCP test.
+
+For Google Colab, use `notebooks/01_colab_private_mcp_validation.ipynb`. Set the exact platform hostname in the notebook and store a separate **ephemeral** Tailscale auth key in Colab Secrets as `TS_AUTHKEY`. Never reuse the long-lived platform key in Colab.
+
+### Step 10 — Retire the old host-level Serve routes only after testing
+
+If this OVH server previously used host-installed Tailscale, keep that host service running until the new Dockerized Tailscale node and both student MCP routes have been tested successfully.
+
+Inspect the old host configuration:
+
+```bash
+sudo tailscale status
+sudo tailscale serve status
+```
+
+Only if the old host Serve configuration contains **only the obsolete MCP routes** and the new Dockerized routes work from a student device, remove the old Serve configuration:
+
+```bash
+sudo tailscale serve reset
+```
+
+This resets Serve configuration on the **host Tailscale node**, not the Dockerized node. Do not uninstall or stop host `tailscaled` if you still use it for SSH/admin access or other services. Do not run `tailscale down` as part of this migration.
 
 ### Convenience scripts
+
+Once `.env` is correctly configured, the repository also provides:
 
 Linux / macOS:
 ```bash
@@ -143,10 +276,12 @@ Linux / macOS:
 
 Windows PowerShell:
 ```powershell
-.\scripts\setup.ps1
-.\scripts\up.ps1
-.\scripts\validate.ps1
+.\\scripts\\setup.ps1
+.\\scripts\\up.ps1
+.\\scripts\\validate.ps1
 ```
+
+The manual steps above are recommended for the first migration because they make each safety check explicit.
 
 ## 6. Student connection
 

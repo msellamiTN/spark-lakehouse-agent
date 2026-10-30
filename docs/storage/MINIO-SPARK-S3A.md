@@ -89,10 +89,11 @@ The Spark master, workers, Jupyter and Spark MCP receive the same configuration 
 From the repository root on the OVH host:
 
 ```bash
-docker compose config --quiet
-docker compose up -d --build
+./scripts/up.sh
 docker compose ps
 ```
+
+The script builds the Spark/S3A base image first, then builds Jupyter and MCP images that inherit it, and finally starts the stack.
 
 Then run:
 

@@ -4,27 +4,355 @@ A local, Docker Compose-based foundation for a multi-agent retail analytics lake
 
 **Phase 1 services:** Apache Spark Standalone (1 master + 2 workers), JupyterLab, Ollama, and MinIO.
 
-## Quick start
+- **Spark:** 3.5.6
+- **JupyterLab:** 4.4.5 (custom image)
+- **Ollama:** 0.12.6
+- **Default local LLM:** `qwen2.5:3b`
+- **Storage layout:** shared local Bronze / Silver / Gold directories
+- **Deployment:** Docker Compose v2
 
-1. Copy `.env.example` to `.env`.
-2. Change `JUPYTER_TOKEN` and `MINIO_ROOT_PASSWORD`.
-3. Run the setup and startup scripts for your OS.
-4. Validate the cluster and pull Qwen into Ollama.
+> **Scope:** Phase 1 deploys and validates the local infrastructure. Retail ingestion, Spark S3A/MinIO integration, CrewAI orchestration, and Streamlit dashboards are planned for later phases. MinIO is running and persistent, but Spark-to-MinIO S3A access is not configured in Phase 1.
 
-See [docs/PHASE-1.md](docs/PHASE-1.md) for complete instructions.
+---
 
-## Architecture direction
+## 1. Architecture
 
-- Bronze / Silver / Gold lakehouse layers.
-- Classic Hadoop `retail_db` as the first business dataset.
-- Future CrewAI agents: Supervisor, Data Engineer, Data Analyst, and Data Visualization Engineer.
-- Local Qwen model hosted by Ollama.
-- Streamlit + Plotly dashboards.
+```text
+                         Local workstation
+                                |
+                       Docker Compose network
+                                |
+          +---------------------+----------------------+
+          |                     |                      |
+   Spark Standalone          JupyterLab              Ollama
+   +----------------+      +----------------+     +----------------+
+   | Master         |<---->| PySpark client  |     | Qwen 2.5 3B    |
+   | Worker 1       |      | Notebooks       |     | Model runtime  |
+   | Worker 2       |      +--------+-------+     +----------------+
+   +--------+-------+               |
+            |                       |
+            +-----------+-----------+
+                        |
+                Shared /lakehouse
+              raw / bronze / silver / gold
+                        |
+                      MinIO
+                S3-compatible storage
+             (deployed; S3A integration
+                is a later-phase task)
+```
 
-## Phase boundaries
+The Spark master and workers, JupyterLab, Ollama, and MinIO communicate over the private Docker network. Published host ports are bound to `127.0.0.1`, so the interfaces are intended for local access.
 
-Phase 1 establishes infrastructure only. Phase 2 adds retail data ingestion, lakehouse transformations, schemas and data quality. Agent orchestration and dashboards follow in subsequent phases.
+## 2. Prerequisites
 
-## Security
+| Requirement | Recommendation |
+|---|---|
+| Docker | Docker Desktop, or Docker Engine |
+| Compose | Docker Compose v2 (`docker compose`) |
+| RAM | 16 GB minimum recommended; 32 GB preferred |
+| Free disk | At least 20 GB recommended when pulling Qwen 2.5 3B |
+| CPU | 4 cores or more recommended |
+| OS | Linux, macOS, or Windows with Docker Desktop |
+| Windows | Hardware virtualization enabled; WSL 2 backend recommended |
 
-Do not commit `.env` or real credentials. This is a local development topology, not a hardened production deployment.
+The default configuration allocates **2 CPU cores and 3 GiB RAM to each Spark worker**. Ollama model inference also consumes memory. Reduce `SPARK_WORKER_CORES` and `SPARK_WORKER_MEMORY` in `.env` if your workstation has limited resources, and leave memory for Docker and the host OS.
+
+Check your installation:
+
+```bash
+docker --version
+docker compose version
+```
+
+Both commands must succeed. Use a recent Docker Desktop / Docker Engine installation with Compose v2.
+
+## 3. Get the project
+
+Clone the repository and enter its directory:
+
+```bash
+git clone https://github.com/msellamiTN/spark-lakehouse-agent.git
+cd spark-lakehouse-agent
+```
+
+If you already downloaded the source as an archive, extract it and open a terminal in the project root (the directory containing `docker-compose.yml`).
+
+## 4. Configure the environment
+
+Create your local environment file from the template.
+
+### Linux / macOS
+
+```bash
+cp .env.example .env
+```
+
+### Windows PowerShell
+
+```powershell
+Copy-Item .env.example .env
+```
+
+Edit `.env` before starting the platform. At minimum, replace these sample values with your own:
+
+```dotenv
+JUPYTER_TOKEN=replace-with-a-long-random-secret
+MINIO_ROOT_USER=minioadmin
+MINIO_ROOT_PASSWORD=replace-with-a-strong-unique-password
+```
+
+Do not use the sample credentials for a shared environment. Keep `.env` private: it is excluded by `.gitignore` and must never be committed.
+
+### Main configuration variables
+
+| Variable | Default | Purpose |
+|---|---|---|
+| `SPARK_IMAGE` | Spark 3.5.6 image | Spark master and worker image |
+| `SPARK_WORKER_CORES` | `2` | Cores assigned to each worker |
+| `SPARK_WORKER_MEMORY` | `3g` | Memory assigned to each worker |
+| `JUPYTER_PORT` | `8888` | JupyterLab host port |
+| `JUPYTER_TOKEN` | Must be changed | JupyterLab authentication token |
+| `OLLAMA_PORT` | `11434` | Ollama API host port |
+| `OLLAMA_MODEL` | `qwen2.5:3b` | Default model name for later integration |
+| `MINIO_API_PORT` | `9000` | MinIO S3 API host port |
+| `MINIO_CONSOLE_PORT` | `9001` | MinIO web console host port |
+| `MINIO_ROOT_USER` | `minioadmin` | MinIO administrator username |
+| `MINIO_ROOT_PASSWORD` | Must be changed | MinIO administrator password |
+
+You can change host ports if they conflict with applications already running on your workstation. Keep the `127.0.0.1:` binding in `docker-compose.yml` if the services should remain local-only.
+
+## 5. Deploy on Linux or macOS
+
+Run these commands from the project root:
+
+```bash
+chmod +x scripts/*.sh
+./scripts/setup.sh
+```
+
+The setup script checks Docker and Compose, creates the `.env` file if missing, creates the expected workspace directories, and validates the Compose configuration. If it creates `.env`, edit the credentials before continuing.
+
+Start the services:
+
+```bash
+./scripts/up.sh
+```
+
+This builds the custom Jupyter image and starts the containers in detached mode. Wait for the health checks to complete, then validate the deployment:
+
+```bash
+./scripts/validate.sh
+```
+
+## 6. Deploy on Windows (PowerShell)
+
+Open PowerShell in the repository root. Ensure Docker Desktop is running and its Docker Engine is available.
+
+```powershell
+Copy-Item .env.example .env
+```
+
+Edit `.env`, then run:
+
+```powershell
+.\scripts\setup.ps1
+.\scripts\up.ps1
+.\scripts\validate.ps1
+```
+
+If PowerShell blocks script execution, use a process-scoped policy for the current terminal:
+
+```powershell
+Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
+```
+
+Do not run Linux shell scripts directly in PowerShell. Use the provided `.ps1` scripts, or run the `.sh` scripts from a compatible Bash environment such as WSL after ensuring Docker Desktop integration is enabled for that WSL distribution.
+
+## 7. Download the local language model
+
+The Ollama service starts independently of the model download. Pull the default model after the containers are running.
+
+### Linux / macOS
+
+```bash
+./scripts/pull-model.sh
+```
+
+Or choose another Ollama model:
+
+```bash
+./scripts/pull-model.sh qwen2.5:3b
+```
+
+### Windows PowerShell
+
+```powershell
+docker compose exec ollama ollama pull qwen2.5:3b
+```
+
+Check downloaded models:
+
+```bash
+docker compose exec ollama ollama list
+```
+
+Model downloads can take time and require additional disk space. The model files are stored in the persistent Docker volume `ollama_models`. The `OLLAMA_MODEL` variable documents the intended model selection for subsequent application/agent integration; pulling a model is a separate operation.
+
+## 8. Open the services
+
+Once the containers are running, open these local endpoints:
+
+| Component | URL | Credentials / notes |
+|---|---|---|
+| Spark Master UI | [http://localhost:8080](http://localhost:8080) | Cluster overview |
+| Spark Worker 1 UI | [http://localhost:8081](http://localhost:8081) | Worker status |
+| Spark Worker 2 UI | [http://localhost:8082](http://localhost:8082) | Worker status |
+| JupyterLab | [http://localhost:8888](http://localhost:8888) | Token from `.env` |
+| Ollama API | [http://localhost:11434](http://localhost:11434) | Local HTTP API |
+| MinIO API | [http://localhost:9000](http://localhost:9000) | S3-compatible endpoint |
+| MinIO Console | [http://localhost:9001](http://localhost:9001) | User/password from `.env` |
+
+If you changed a host port in `.env`, use that port instead of the default shown above. The services are published on loopback only; they are not exposed for remote access by default.
+
+## 9. Run a Spark smoke test
+
+The repository includes a starter notebook at `notebooks/00_phase1_spark_smoke_test.py`. Open JupyterLab, then open or import that notebook/script from the `notebooks` workspace.
+
+You can also run a minimal distributed PySpark test from the Jupyter container:
+
+```bash
+docker compose exec jupyter python3 - <<'PY'
+from pyspark.sql import SparkSession
+
+spark = (
+    SparkSession.builder
+    .appName("lakehouse-smoke-test")
+    .master("spark://spark-master:7077")
+    .getOrCreate()
+)
+
+result = spark.range(0, 1000).count()
+print("Rows processed:", result)
+print("Spark version:", spark.version)
+print("Master:", spark.sparkContext.master)
+
+assert result == 1000
+spark.stop()
+PY
+```
+
+Expected result: `Rows processed: 1000`, with the Spark master shown as `spark://spark-master:7077`.
+
+The validation script performs a similar integration test and also checks service health and MinIO's live endpoint.
+
+## 10. Lakehouse workspace
+
+The host project contains a shared `lakehouse/` directory mounted into Spark and Jupyter containers:
+
+```text
+lakehouse/
+├── raw/          # Source extracts (future ingestion phase)
+├── bronze/       # Raw persisted datasets
+├── silver/       # Cleaned and conformed datasets
+├── gold/         # Business-ready data products
+└── checkpoints/  # Streaming / processing checkpoints
+```
+
+Files written under `/lakehouse` in Jupyter or Spark containers are persisted in the project directory on the host. The `retail/` directory is mounted at `/workspace/retail` and reserved for the retail dataset and ingestion assets.
+
+## 11. Operations and maintenance
+
+Run commands from the project root.
+
+```bash
+# List services and health states
+docker compose ps
+
+# Follow logs
+docker compose logs -f spark-master
+docker compose logs -f spark-worker-1 spark-worker-2
+docker compose logs -f jupyter
+docker compose logs -f ollama
+docker compose logs -f minio
+
+# Open a shell in Jupyter
+docker compose exec jupyter bash
+
+# List Ollama models
+docker compose exec ollama ollama list
+
+# Stop and remove containers/network (keeps named volumes)
+docker compose down
+
+# Start again
+docker compose up -d
+```
+
+To rebuild the custom Jupyter image after changing its Dockerfile:
+
+```bash
+docker compose up -d --build
+```
+
+### Reset warning
+
+`docker compose down` preserves named volumes, including the Ollama model cache, MinIO data, and Jupyter configuration.
+
+`docker compose down -v` **deletes those named volumes and their persisted data**. Use it only when you intentionally want a full reset. It does not replace a backup.
+
+## 12. Troubleshooting
+
+| Symptom | Checks and remediation |
+|---|---|
+| Docker command not found | Install/start Docker Desktop or Docker Engine; reopen the terminal and check `docker --version`. |
+| Compose command not found | Install a Docker version that includes Compose v2; verify `docker compose version`. |
+| Port already allocated | Change the corresponding host port in `.env` (for example `JUPYTER_PORT` or `MINIO_CONSOLE_PORT`) and recreate the stack with `docker compose up -d`. |
+| Spark workers do not become healthy | Inspect `docker compose logs spark-master spark-worker-1 spark-worker-2`; check available RAM and worker resource settings. |
+| Jupyter is unavailable | Check `docker compose logs jupyter`, wait for its health check, and confirm the token in `.env`. |
+| Jupyter authentication fails | Use the exact `JUPYTER_TOKEN` configured in `.env`; recreate the Jupyter container after changing it with `docker compose up -d --force-recreate jupyter`. |
+| Image build or pull fails | Check internet access, Docker Hub connectivity, disk space, and Docker daemon status; retry the build. |
+| Ollama model pull is slow/fails | Check disk space and network access; retry `docker compose exec ollama ollama pull qwen2.5:3b`. |
+| Containers exit unexpectedly | Run `docker compose ps -a` and inspect the relevant service logs. |
+| Windows Docker/WSL issue | Start Docker Desktop, confirm the WSL 2 backend and distribution integration, then retry from PowerShell. |
+
+For a focused diagnostic, collect:
+
+```bash
+docker compose ps -a
+docker compose logs --tail=200
+docker system df
+```
+
+Review logs before sharing them; remove tokens, passwords, and other sensitive values.
+
+## 13. Security and deployment boundary
+
+- Change the sample Jupyter token and MinIO password before first use.
+- Never commit `.env`, credentials, tokens, private datasets, or model secrets.
+- Published ports are bound to `127.0.0.1` for local development.
+- Do not expose this stack directly to an untrusted network.
+- This Compose setup is a development/lab environment, **not a production-hardened deployment**. Production requires a separate security, identity, TLS, secrets, backup, observability, resource, and availability design.
+- MinIO is deployed with persistent storage, but Spark S3A dependencies/configuration and bucket provisioning are deferred to Phase 2. Phase 1 persists Parquet and other files on the shared local `/lakehouse` volume.
+- CrewAI agents and Streamlit dashboards are not part of the Phase 1 deployment.
+
+## 14. Project roadmap
+
+| Phase | Scope |
+|---|---|
+| **Phase 1 — Infrastructure** | Docker Compose, Spark cluster, JupyterLab, Ollama, MinIO, validation |
+| **Phase 2 — Lakehouse data** | Retail dataset ingestion, Bronze/Silver/Gold transformations, Parquet, data quality, MinIO/S3A integration |
+| **Phase 3 — Agent services** | CrewAI orchestration, Supervisor, Data Engineer, Data Analyst, Visualization Engineer |
+| **Phase 4 — Analytics application** | Streamlit application, Plotly dashboards, agent-assisted analytics |
+
+## 15. Further documentation
+
+- [Phase 1 technical deployment notes](docs/PHASE-1.md)
+- [Docker Compose configuration](docker-compose.yml)
+- [Environment template](.env.example)
+- [Spark smoke-test notebook](notebooks/00_phase1_spark_smoke_test.py)
+
+---
+
+**Data2AI — Spark Lakehouse Agent Platform**  
+Build the lakehouse foundation first; validate it before adding data pipelines and agents.

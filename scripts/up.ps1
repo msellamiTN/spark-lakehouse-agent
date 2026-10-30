@@ -3,6 +3,10 @@ Set-Location (Join-Path $PSScriptRoot "..")
 if (-not (Test-Path ".env")) { throw ".env is missing. Run .\scripts\setup.ps1 first." }
 $tsLine = Get-Content ".env" | Where-Object { $_ -match "^\s*TS_AUTHKEY=" } | Select-Object -First 1
 if (-not $tsLine -or $tsLine -match "REPLACE") { throw "Set a valid TS_AUTHKEY in .env." }
+$sparkImageLine = Get-Content ".env" | Where-Object { $_ -match "^\s*SPARK_IMAGE=" } | Select-Object -First 1
+if (-not $sparkImageLine -or $sparkImageLine -notmatch "spark-lakehouse-s3a:3.5.6") {
+    throw "Set SPARK_IMAGE=spark-lakehouse-s3a:3.5.6 in .env."
+}
 foreach ($name in @("SPARK_S3A_ACCESS_KEY", "SPARK_S3A_SECRET_KEY")) {
     $line = Get-Content ".env" | Where-Object { $_ -match "^\s*$name=" } | Select-Object -First 1
     if (-not $line -or $line -match "replace-") {

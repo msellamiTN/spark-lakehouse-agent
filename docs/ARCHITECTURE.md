@@ -33,27 +33,28 @@ flowchart TB
       TS --> SERVE --> NGINX
     end
     subgraph APP["Application plane · private Docker bridge"]
-      SMCP["Spark MCP · read-only"]
+      SMCP["Spark MCP · read-only SQL"]
       MMCP["MinIO MCP · bucket/prefix scoped"]
-      SPARK["Spark master + 2 workers"]
-      JUPYTER["JupyterLab"]
-      MINIO["MinIO S3 API"]
+      SPARK["Spark master + 2 workers · S3A"]
+      JUPYTER["JupyterLab · PySpark"]
+      MINIO["MinIO S3 API · lakehouse bucket"]
       OLLAMA["Ollama"]
       NGINX -->|"/spark/mcp"| SMCP
       NGINX -->|"/minio/mcp"| MMCP
       SMCP --> SPARK
       JUPYTER --> SPARK
+      SPARK <-->|"S3A · Parquet"| MINIO
       MMCP --> MINIO
     end
     subgraph PERSIST["Persistence plane"]
-      LAKE[("Host mount: lakehouse/")]
-      MNV[("minio_data")]
+      SCRATCH[("Local scratch: lakehouse/")]
+      MNV[("minio_data · canonical lake")]
       OLV[("ollama_models")]
       JCV[("jupyter_config")]
       TSV[("tailscale_state")]
     end
-    SPARK --> LAKE
-    JUPYTER --> LAKE
+    JUPYTER --> SCRATCH
+    SPARK -. "legacy scratch only" .-> SCRATCH
     MINIO --> MNV
     OLLAMA --> OLV
     JUPYTER --> JCV
@@ -152,6 +153,10 @@ The `./lakehouse:/lakehouse` bind mount is retained temporarily for legacy noteb
 
 See the [Spark S3A ↔ MinIO operations guide](storage/MINIO-SPARK-S3A.md) for identity policy, configuration, rebuild and validation steps.
 
+### Local scratch versus canonical data
+
+The bind mount `./lakehouse:/lakehouse` remains for transitional compatibility with existing notebooks and local imports. It must not be used as the authoritative location for Raw/Bronze/Silver/Gold datasets. New Lakehouse code should use `s3a://lakehouse/<zone>/...`. The deployment diagram distinguishes this scratch path from the MinIO data volume.
+
 ## 4. MCP capability boundaries
 
 ### Spark MCP
@@ -223,7 +228,7 @@ docker compose exec tailscale tailscale serve status
 | Separate MCP servers | Independent capabilities and permissions | Validate both tool contracts |
 | Loopback host publishing | Reduce accidental public exposure | Admin access via host or SSH tunnel |
 | MinIO named volume | Durable objects across container recreation | Backup/restore is operator responsibility |
-| Shared local lakehouse in Phase 1 | Simple Spark/Jupyter workflow | Not equivalent to S3 integration |
+| MinIO as canonical Lakehouse | Durable S3-compatible object storage with Spark S3A | Requires bucket-scoped service identity and tested write/read path |
 
 ## 8. Change-control checklist
 

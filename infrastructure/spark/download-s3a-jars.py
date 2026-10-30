@@ -11,20 +11,23 @@ artifacts = [
     (
         f"https://repo.maven.apache.org/maven2/org/apache/hadoop/hadoop-aws/{hadoop_version}/hadoop-aws-{hadoop_version}.jar",
         Path(f"/opt/spark/jars/hadoop-aws-{hadoop_version}.jar"),
+        100_000,
     ),
     (
         f"https://repo.maven.apache.org/maven2/com/amazonaws/aws-java-sdk-bundle/{aws_version}/aws-java-sdk-bundle-{aws_version}.jar",
         Path(f"/opt/spark/jars/aws-java-sdk-bundle-{aws_version}.jar"),
+        1_000_000,
     ),
     (
         "https://repo.maven.apache.org/maven2/org/wildfly/openssl/wildfly-openssl/1.0.7/wildfly-openssl-1.0.7.jar",
         Path("/opt/spark/jars/wildfly-openssl-1.0.7.jar"),
+        10_000,
     ),
 ]
 
-for url, destination in artifacts:
+for url, destination, minimum_size in artifacts:
     if not destination.exists():
         print(f"Downloading {destination.name}")
         urlretrieve(url, destination)
-    if destination.stat().st_size < 1_000_000:
+    if destination.stat().st_size < minimum_size:
         raise RuntimeError(f"Unexpectedly small dependency: {destination}")

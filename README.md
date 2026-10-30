@@ -46,7 +46,7 @@ All four Medallion zones are logical prefixes in the persistent MinIO `lakehouse
 ### Server (OVH Ubuntu)
 - Docker Engine
 - Docker Compose v2 plugin
-- Outbound Internet access for image pulls and Tailscale control-plane connectivity
+- Outbound HTTPS access for Docker image pulls, Maven Central (`repo.maven.apache.org`) to build the pinned S3A dependencies, and Tailscale control-plane connectivity
 - Recommended: 16 GB RAM minimum, 32 GB preferred; 4+ CPU cores; 30+ GB free disk
 
 The server does **not** need host-level Tailscale, Nginx, Java, Spark, Python, or MinIO installations.

@@ -83,7 +83,7 @@ flowchart TB
 | MCP application | Spark MCP, MinIO MCP | Translate tool calls into bounded backend operations | Independent tool and permission surfaces |
 | Compute | Spark master, two workers | Distributed Spark execution and S3A I/O to MinIO | Internal Spark RPC; Hadoop/S3A versions aligned |
 | Interactive engineering | JupyterLab | Notebook development and Spark client | Token protected; loopback only |
-| Object storage | MinIO | Canonical Lakehouse data lake (Raw/Bronze/Silver/Gold) | Persistent volume; Spark S3A; separate service identities |
+| Object storage | MinIO | Canonical Lakehouse data lake (Raw/Bronze/Silver/Gold) | Persistent volume; Spark S3A; Compose-injected MinIO credentials |
 | Model runtime | Ollama | Local model serving | No assumption of Phase 1 agent integration |
 | Persistence | Bind mount and named volumes | Durable data and service state | Never delete volumes for routine troubleshooting |
 
@@ -133,7 +133,7 @@ s3a://lakehouse/
 - MinIO owns durable Lakehouse objects; Spark 3.5.6 is the distributed compute engine.
 - The custom Spark image adds `hadoop-aws:3.3.4` and `aws-java-sdk-bundle:1.12.262`, aligned with the Hadoop 3.3.4 client bundled in the base image. The Dockerfile fails if the expected Hadoop client JARs are absent.
 - `infrastructure/spark/spark-defaults.conf` configures `s3a://lakehouse/<zone>/<domain>/<dataset>/`, the internal MinIO endpoint, path-style requests and the AWS SDK environment-variable credential provider.
-- Spark credentials are injected separately from MinIO root credentials into Jupyter, Spark MCP and both worker containers. Executors therefore receive the same S3A identity as the driver.
+- For the simple single-user lab profile, Compose injects the existing `MINIO_ROOT_USER` / `MINIO_ROOT_PASSWORD` into Jupyter, Spark MCP and both worker containers as the AWS S3A environment credentials. No separate Spark credential-generation workflow is required. This gives Spark administrative MinIO privileges; replace it with a bucket-scoped service identity before untrusted multi-user or production use.
 - Use Parquet as the baseline columnar format. Plain Parquet is not transactional; Delta Lake or Apache Iceberg require their own compatible runtime/catalog and commit protocol.
 - Keep MinIO MCP on its separate, more restricted identity; agent write access remains disabled unless explicitly approved.
 - Streaming checkpoints belong in dedicated persistent MinIO prefixes and must not be mixed with curated table data.
@@ -144,7 +144,7 @@ s3a://lakehouse/
 The repository now configures the Spark-to-MinIO path in Compose:
 - A custom Spark image adds the Hadoop S3A connector and its matching AWS SDK bundle.
 - The same `spark-defaults.conf` is mounted into the Spark master/workers, Jupyter and Spark MCP.
-- The Jupyter and Spark MCP drivers, plus both Spark workers, receive a dedicated Spark MinIO service-account identity through environment variables.
+- The Jupyter and Spark MCP drivers, plus both Spark workers, receive the existing MinIO root credentials through Compose environment interpolation for the simple lab profile.
 - Jupyter and Spark MCP wait for MinIO to start before their own startup.
 
 This is **configuration committed to Git**, not proof of a successful OVH runtime. Rebuild the images and run `./scripts/validate.sh`; the added `notebooks/validate_minio_s3a.py` performs a distributed Parquet write/read round trip through S3A and cleans up only its unique validation prefix. Until that test passes on the OVH host, mark live integration as pending.

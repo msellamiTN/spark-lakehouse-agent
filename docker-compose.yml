@@ -273,7 +273,8 @@ services:
   tailscale:
     image: tailscale/tailscale:stable
     container_name: lakehouse-tailscale
-    hostname: ${TS_HOSTNAME:-spark-lakehouse-agent}
+    # Do not set container hostname when sharing another service network namespace.
+    # TS_HOSTNAME below sets the Tailscale device name.
     network_mode: "service:mcp-gateway"
     depends_on:
       mcp-gateway:

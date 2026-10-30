@@ -19,6 +19,7 @@
 ## Requirements
 
 - Docker Desktop with Docker Compose v2, or Docker Engine + Compose plugin.
+- Outbound HTTPS access to Docker registries, Maven Central (`repo.maven.apache.org`) for the pinned S3A JARs, and the Tailscale control plane.
 - For the default remote deployment, a tagged Tailscale auth key and tailnet admin setup (MagicDNS, HTTPS certificates, grants).
 - 16 GB RAM minimum recommended for a light local run; 32 GB preferred.
 - At least 20 GB free disk space if pulling the Qwen model.

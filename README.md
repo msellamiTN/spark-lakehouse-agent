@@ -174,12 +174,16 @@ docker compose config --quiet
 
 If it reports a missing variable or invalid configuration, fix `.env` before continuing. Do not start the stack until this command succeeds.
 
-### Step 6 — Start the complete platform
+### Step 6 — Build the S3A runtime and start the complete platform
+
+Use the supplied script so the shared Spark/S3A base image is built before Jupyter and MCP images that inherit it:
 
 ```bash
-docker compose up -d --build
+./scripts/up.sh
 docker compose ps
 ```
+
+On Windows PowerShell, run ` .\\scripts\\up.ps1 `.
 
 The default Compose file starts Spark, JupyterLab, Ollama, MinIO, both MCP servers, the Nginx gateway, and the Tailscale sidecar. **Do not add an overlay Compose file and do not run a host-level `tailscale serve` command.**
 

@@ -24,6 +24,8 @@ spark.stop()
 Write-Host "PASS: Jupyter-to-Spark integration job"
 docker compose exec -T jupyter python3 -c "import requests; r=requests.get('http://minio:9000/minio/health/live',timeout=5); r.raise_for_status(); print('MinIO:',r.status_code)"
 Write-Host "PASS: MinIO HTTP health endpoint"
+docker compose exec -T spark-mcp python3 -m unittest discover -s /app/tests -v
+Write-Host "PASS: MCP guardrail unit tests"
 Write-Host "PASS: Spark MCP endpoint process is healthy (localhost:8002/mcp)"
 Write-Host "PASS: MinIO MCP endpoint process is healthy (localhost:8003/mcp)"
 Write-Host "All Phase 1 infrastructure and MCP service checks passed."

@@ -1,132 +1,180 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="1160" viewBox="0 0 1600 1160" role="img" aria-labelledby="title desc">
-<title id="title">Data2AI — Spark Lakehouse Agent Platform with Spark and MinIO MCP servers</title>
-<desc id="desc">Phase 1 local Docker Compose architecture. Spark Standalone, JupyterLab, Ollama and MinIO are deployed with two MCP servers. Spark MCP provides read-only catalog and SQL tools to agents; MinIO MCP provides allowlisted object discovery and optional controlled text writes. Spark S3A integration remains a future Phase 2 connection.</desc>
+<svg xmlns="http://www.w3.org/2000/svg" width="1800" height="1320" viewBox="0 0 1800 1320" role="img" aria-labelledby="title desc">
+<title id="title">Spark Lakehouse Agent Platform — Professional deployment architecture</title>
+<desc id="desc">Detailed Phase 1 deployment architecture showing remote users connecting over a private Tailscale tailnet to a Dockerized Tailscale node, Tailscale Serve, Nginx gateway, Spark MCP and MinIO MCP. The private Docker network contains Spark Standalone, JupyterLab, Ollama and MinIO. Persistent filesystem and named volumes are shown. Spark S3A integration is explicitly marked Phase 2.</desc>
 <defs>
-  <linearGradient id="canvas" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#f4f7fb"/><stop offset="1" stop-color="#e9eff6"/></linearGradient>
-  <linearGradient id="navy" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#10243d"/><stop offset="1" stop-color="#1c456b"/></linearGradient>
-  <filter id="shadow" x="-15%" y="-15%" width="130%" height="140%"><feDropShadow dx="0" dy="4" stdDeviation="7" flood-color="#17324d" flood-opacity=".09"/></filter>
-  <marker id="arrow" markerWidth="9" markerHeight="9" refX="8" refY="4" orient="auto"><path d="M0 0 L8 4 L0 8 Z" fill="#42617f"/></marker>
-  <marker id="futureArrow" markerWidth="9" markerHeight="9" refX="8" refY="4" orient="auto"><path d="M0 0 L8 4 L0 8 Z" fill="#b27b28"/></marker>
-  <style>
-    .title{font:700 31px Inter,Arial,sans-serif;fill:#fff}.subtitle{font:15px Inter,Arial,sans-serif;fill:#d4e1ee}
-    .eyebrow{font:700 11px Inter,Arial,sans-serif;letter-spacing:1.7px;fill:#9eb8d0}
-    .section{font:700 15px Inter,Arial,sans-serif;letter-spacing:.5px;fill:#213d59}
-    .cardTitle{font:700 17px Inter,Arial,sans-serif;fill:#17324d}
-    .body{font:14px Inter,Arial,sans-serif;fill:#425b73}.muted{font:12px Inter,Arial,sans-serif;fill:#637b91}
-    .micro{font:11px Inter,Arial,sans-serif;fill:#637b91}.code{font:600 12px ui-monospace,Consolas,monospace;fill:#24445f}
-    .panel{fill:#fff;stroke:#d5e0ea;stroke-width:1.3;filter:url(#shadow)}
-    .inner{fill:#f8fafc;stroke:#dce5ee;stroke-width:1}
-    .compute{fill:#eaf2fb;stroke:#7da3c8}.notebook{fill:#f1edfa;stroke:#a897cc}
-    .ai{fill:#eaf5ef;stroke:#8ab69a}.object{fill:#fff5e5;stroke:#d7b16f}
-    .mcp{fill:#edf2fb;stroke:#6689b3;stroke-width:1.4}.pillText{font:700 10px Inter,Arial,sans-serif;letter-spacing:.5px}
-    .flow{fill:none;stroke:#42617f;stroke-width:2.3;marker-end:url(#arrow)}
-    .future{fill:none;stroke:#b27b28;stroke-width:2.3;stroke-dasharray:8 7;marker-end:url(#futureArrow)}
-  </style>
+ <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#f4f7fb"/><stop offset="1" stop-color="#e8eef5"/></linearGradient>
+ <linearGradient id="header" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#102a43"/><stop offset="1" stop-color="#1e5276"/></linearGradient>
+ <linearGradient id="tail" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#e8f3ff"/><stop offset="1" stop-color="#dceafa"/></linearGradient>
+ <filter id="shadow" x="-15%" y="-15%" width="130%" height="140%"><feDropShadow dx="0" dy="4" stdDeviation="7" flood-color="#16324b" flood-opacity=".10"/></filter>
+ <marker id="arr" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto"><path d="M0 0 L9 5 L0 10Z" fill="#496783"/></marker>
+ <marker id="goldarr" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto"><path d="M0 0 L9 5 L0 10Z" fill="#b98535"/></marker>
+ <style>
+ .h1{font:700 34px Inter,Arial,sans-serif;fill:#fff}.sub{font:15px Inter,Arial,sans-serif;fill:#d4e2ef}
+ .eyebrow{font:700 11px Inter,Arial,sans-serif;letter-spacing:2px;fill:#a9c2d8}
+ .band{font:700 15px Inter,Arial,sans-serif;letter-spacing:1px;fill:#24435f}
+ .node{font:700 18px Inter,Arial,sans-serif;fill:#18344e}.desc{font:13px Inter,Arial,sans-serif;fill:#536d83}
+ .small{font:12px Inter,Arial,sans-serif;fill:#5c7388}.tiny{font:11px Inter,Arial,sans-serif;fill:#60798e}
+ .mono{font:600 12px ui-monospace,Consolas,monospace;fill:#234762}
+ .white{fill:#fff;stroke:#d3dee8;stroke-width:1.3;filter:url(#shadow)}
+ .subcard{fill:#f8fafc;stroke:#dbe4ed;stroke-width:1.1}
+ .blue{fill:#eaf2fb;stroke:#86a9cc;stroke-width:1.3}.purple{fill:#f1edfa;stroke:#aa9bce;stroke-width:1.3}
+ .green{fill:#eaf5ef;stroke:#8db99c;stroke-width:1.3}.amber{fill:#fff5e7;stroke:#d6b276;stroke-width:1.3}
+ .teal{fill:#e9f5f5;stroke:#82b6b4;stroke-width:1.3}
+ .solid{fill:none;stroke:#496783;stroke-width:2.5;marker-end:url(#arr)}
+ .dashed{fill:none;stroke:#b98535;stroke-width:2.5;stroke-dasharray:9 7;marker-end:url(#goldarr)}
+ .tag{font:700 10px Inter,Arial,sans-serif;letter-spacing:.6px}
+ </style>
 </defs>
-<rect width="1600" height="1160" fill="url(#canvas)"/>
-<rect x="42" y="30" width="1516" height="126" rx="20" fill="url(#navy)"/>
-<text x="82" y="65" class="eyebrow">DATA2AI  /  PLATFORM ENGINEERING</text>
-<text x="82" y="108" class="title">Spark Lakehouse Agent Platform</text>
-<text x="84" y="136" class="subtitle">Phase 1 deployment architecture  ·  Spark + MinIO MCP interfaces  ·  Docker Compose v2</text>
-<rect x="1320" y="72" width="190" height="38" rx="19" fill="#d9eee2"/>
-<text x="1415" y="96" text-anchor="middle" class="pillText" fill="#24633f">PHASE 1 · BASELINE</text>
+<rect width="1800" height="1320" fill="url(#bg)"/>
+<rect x="38" y="28" width="1724" height="126" rx="20" fill="url(#header)"/>
+<text x="78" y="64" class="eyebrow">DATA2AI  /  PLATFORM ENGINEERING  /  REFERENCE DEPLOYMENT</text>
+<text x="78" y="108" class="h1">Spark Lakehouse Agent Platform</text>
+<text x="80" y="135" class="sub">Phase 1 · OVH Ubuntu · Docker Compose v2 · Private MCP access through Tailscale</text>
+<rect x="1510" y="68" width="206" height="42" rx="21" fill="#d9eee2"/>
+<text x="1613" y="94" text-anchor="middle" class="tag" fill="#24633f">PHASE 1 · DEPLOYED BASELINE</text>
 
-<rect x="54" y="184" width="1492" height="806" rx="22" fill="#f9fbfd" stroke="#9fb3c7" stroke-width="1.8" stroke-dasharray="7 6"/>
-<rect x="78" y="202" width="320" height="28" rx="14" fill="#e5edf5"/>
-<text x="94" y="221" class="section">DOCKER COMPOSE NETWORK</text>
-<text x="1515" y="221" text-anchor="end" class="muted">spark-lakehouse-network · bridge · local workstation</text>
+<!-- Remote access domain -->
+<rect x="48" y="184" width="1704" height="190" rx="18" fill="url(#tail)" stroke="#91afd0" stroke-width="1.5"/>
+<text x="76" y="216" class="band">A  /  REMOTE ACCESS &amp; IDENTITY DOMAIN</text>
+<text x="1720" y="216" text-anchor="end" class="small">Private tailnet · no public MCP exposure · Funnel disabled</text>
 
-<!-- Core services -->
-<rect x="82" y="252" width="430" height="242" rx="16" class="panel"/>
-<text x="110" y="287" class="cardTitle">01  Apache Spark Standalone</text>
-<text x="110" y="310" class="muted">Spark 3.5.6 · distributed compute</text>
-<rect x="110" y="334" width="374" height="62" rx="10" class="compute"/>
-<text x="130" y="360" class="cardTitle">Spark Master</text>
-<text x="130" y="382" class="muted">RPC 7077 · Web UI 8080</text>
-<rect x="110" y="411" width="174" height="60" rx="9" class="inner"/>
-<text x="128" y="436" class="cardTitle">Worker 01</text><text x="128" y="456" class="muted">2 cores · 3 GiB · UI 8081</text>
-<rect x="310" y="411" width="174" height="60" rx="9" class="inner"/>
-<text x="328" y="436" class="cardTitle">Worker 02</text><text x="328" y="456" class="muted">2 cores · 3 GiB · UI 8082</text>
-<path d="M297 396 V403 H197 V411 M297 403 H397 V411" class="flow"/>
+<rect x="82" y="244" width="300" height="94" rx="13" class="white"/>
+<text x="108" y="279" class="node">Learner / Engineer</text>
+<text x="108" y="303" class="desc">MCP client · IDE · Agent runtime</text>
+<text x="108" y="325" class="mono">Tailscale client connected</text>
 
-<rect x="532" y="252" width="290" height="242" rx="16" class="panel"/>
-<text x="560" y="287" class="cardTitle">02  JupyterLab</text>
-<text x="560" y="310" class="muted">Custom Spark + Python image</text>
-<rect x="560" y="342" width="234" height="98" rx="10" class="notebook"/>
-<text x="580" y="374" class="cardTitle">PySpark workspace</text>
-<text x="580" y="400" class="body">Notebooks · experiments</text>
-<text x="580" y="424" class="code">localhost:8888</text>
-<text x="560" y="466" class="muted">Spark client → spark-master:7077</text>
-<path d="M560 376 H500" class="flow"/>
+<path d="M382 291 H478" class="solid"/>
+<text x="430" y="276" text-anchor="middle" class="tiny">WireGuard</text>
 
-<rect x="842" y="252" width="290" height="242" rx="16" class="panel"/>
-<text x="870" y="287" class="cardTitle">03  Ollama</text>
-<text x="870" y="310" class="muted">Local model runtime</text>
-<rect x="870" y="342" width="234" height="98" rx="10" class="ai"/>
-<text x="890" y="374" class="cardTitle">Qwen 2.5 · 3B</text>
-<text x="890" y="400" class="body">Model pulled separately</text>
-<text x="890" y="424" class="code">localhost:11434</text>
-<text x="870" y="466" class="muted">Internal API: ollama:11434</text>
+<rect x="480" y="244" width="330" height="94" rx="13" class="white"/>
+<text x="508" y="279" class="node">Private Tailnet</text>
+<text x="508" y="303" class="desc">Device identity · ACL / grants</text>
+<text x="508" y="325" class="mono">HTTPS · TCP 443</text>
 
-<rect x="1152" y="252" width="360" height="242" rx="16" class="panel"/>
-<text x="1180" y="287" class="cardTitle">04  MinIO</text>
-<text x="1180" y="310" class="muted">S3-compatible object storage</text>
-<rect x="1180" y="342" width="304" height="98" rx="10" class="ai"/>
-<text x="1200" y="374" class="cardTitle">MinIO object service</text>
-<text x="1200" y="400" class="body">S3 API 9000 · Console 9001</text>
-<text x="1200" y="424" class="muted">Persistent Docker volume</text>
-<text x="1180" y="466" class="muted">Bucket access controlled by MinIO IAM</text>
+<path d="M810 291 H906" class="solid"/>
+<text x="858" y="276" text-anchor="middle" class="tiny">Tailnet route</text>
 
-<!-- MCP services -->
-<rect x="82" y="535" width="690" height="220" rx="16" class="panel"/>
-<text x="112" y="573" class="cardTitle">05  Spark MCP server</text>
-<rect x="574" y="551" width="164" height="28" rx="14" fill="#e5edf5"/>
-<text x="656" y="570" text-anchor="middle" class="pillText" fill="#345675">READ-ONLY TOOLS</text>
-<text x="112" y="600" class="muted">Streamable HTTP · container endpoint :8000 · host endpoint localhost:8002/mcp</text>
-<rect x="112" y="622" width="630" height="100" rx="10" class="mcp"/>
-<text x="134" y="650" class="body">• Session information and catalog discovery</text>
-<text x="134" y="675" class="body">• Database/table listing and schema inspection</text>
-<text x="134" y="700" class="body">• Bounded SELECT queries · default 100 rows · hard cap 500</text>
+<rect x="908" y="244" width="350" height="94" rx="13" class="white"/>
+<text x="936" y="279" class="node">Tailscale Serve</text>
+<text x="936" y="303" class="desc">HTTPS termination · tailnet-only</text>
+<text x="936" y="325" class="mono">Proxy → 127.0.0.1:8080</text>
 
-<rect x="798" y="535" width="714" height="220" rx="16" class="panel"/>
-<text x="828" y="573" class="cardTitle">06  MinIO MCP server</text>
-<rect x="1310" y="551" width="172" height="28" rx="14" fill="#e5edf5"/>
-<text x="1396" y="570" text-anchor="middle" class="pillText" fill="#345675">SCOPED ACCESS</text>
-<text x="828" y="600" class="muted">Streamable HTTP · container endpoint :8001 · host endpoint localhost:8003/mcp</text>
-<rect x="828" y="622" width="654" height="100" rx="10" class="mcp"/>
-<text x="850" y="650" class="body">• Allowlisted bucket and object discovery</text>
-<text x="850" y="675" class="body">• Object metadata and bounded text reads</text>
-<text x="850" y="700" class="body">• Optional text writes · disabled by default · prefix restricted</text>
+<path d="M1258 291 H1354" class="solid"/>
+<text x="1306" y="276" text-anchor="middle" class="tiny">HTTP proxy</text>
 
-<!-- Active connections -->
-<path d="M512 376 H522" class="flow"/>
-<path d="M430 535 V515 H297 V498" class="flow"/>
-<path d="M1150 535 V515 H1332 V498" class="flow"/>
+<rect x="1356" y="244" width="350" height="94" rx="13" class="white"/>
+<text x="1384" y="279" class="node">Nginx MCP Gateway</text>
+<text x="1384" y="303" class="desc">Path routing · SSE / streaming</text>
+<text x="1384" y="325" class="mono">:8080 · /spark/mcp · /minio/mcp</text>
 
-<!-- Shared filesystem -->
-<rect x="82" y="790" width="1430" height="150" rx="16" class="panel"/>
-<text x="112" y="828" class="cardTitle">07  Shared lakehouse filesystem</text>
-<text x="112" y="852" class="muted">Host-mounted directory at /lakehouse · shared by Spark master/workers, JupyterLab and Spark MCP</text>
-<rect x="112" y="874" width="180" height="44" rx="8" class="object"/><text x="202" y="902" text-anchor="middle" class="cardTitle">RAW / BRONZE</text>
-<rect x="310" y="874" width="180" height="44" rx="8" class="object"/><text x="400" y="902" text-anchor="middle" class="cardTitle">SILVER</text>
-<rect x="508" y="874" width="180" height="44" rx="8" class="object"/><text x="598" y="902" text-anchor="middle" class="cardTitle">GOLD</text>
-<rect x="706" y="874" width="220" height="44" rx="8" class="object"/><text x="816" y="902" text-anchor="middle" class="cardTitle">CHECKPOINTS</text>
-<text x="970" y="888" class="muted">Phase 1 data path: shared local filesystem</text>
-<text x="970" y="910" class="muted">MinIO persists independently in its named volume</text>
+<!-- host boundary -->
+<rect x="48" y="402" width="1704" height="780" rx="22" fill="#f9fbfd" stroke="#8198ae" stroke-width="2" stroke-dasharray="8 6"/>
+<rect x="76" y="418" width="420" height="34" rx="17" fill="#dce7f1"/>
+<text x="94" y="441" class="band">B  /  OVH UBUNTU HOST · DOCKER COMPOSE</text>
+<text x="1720" y="441" text-anchor="end" class="small">Docker bridge: spark-lakehouse-network</text>
 
-<!-- Agent client outside the Compose network -->
-<rect x="82" y="1010" width="1430" height="96" rx="16" fill="#edf2fb" stroke="#9aafc7" stroke-width="1.4"/>
-<text x="112" y="1047" class="cardTitle">Compatible agent runtime / MCP host</text>
-<text x="112" y="1075" class="body">Not bundled in Phase 1 · connect from the host via localhost:8002/mcp and localhost:8003/mcp</text>
-<path d="M430 1010 V970 H430 V760" class="flow"/>
-<path d="M1140 1010 V970 H1140 V760" class="flow"/>
+<!-- ingress sidecar boundary -->
+<rect x="78" y="474" width="1628" height="112" rx="14" fill="#eef4fb" stroke="#9ab4cf" stroke-width="1.2"/>
+<text x="102" y="502" class="band">INGRESS SIDECAR</text>
+<rect x="320" y="489" width="570" height="72" rx="11" class="blue"/>
+<text x="346" y="519" class="node">Tailscale container · userspace networking</text>
+<text x="346" y="543" class="desc">Persistent tailscale_state · tagged node identity · TS_HOSTNAME</text>
+<rect x="1040" y="489" width="620" height="72" rx="11" class="blue"/>
+<text x="1066" y="519" class="node">Shared network namespace with mcp-gateway</text>
+<text x="1066" y="543" class="desc">Compose network_mode: service:mcp-gateway · no separate container hostname</text>
+<path d="M1530 338 V460 H605 V489" class="solid"/>
+<path d="M890 525 H1040" class="solid"/>
+<path d="M1350 489 V460 H1530 V338" class="solid" opacity="0"/>
 
-<!-- Future integration boundary and legend -->
-<path d="M1450 790 V770 H1490 V498" class="future"/>
-<text x="1490" y="770" text-anchor="end" class="micro">Spark S3A · Phase 2</text>
-<path d="M1180 970 H1240" class="flow"/>
-<text x="1260" y="975" class="micro">Configured path</text>
-<path d="M1360 970 H1420" class="future"/>
-<text x="1440" y="975" class="micro">Future</text>
-<text x="1512" y="1140" text-anchor="end" class="micro">DATA2AI  ·  Architecture baseline  ·  Local development topology, not production security blueprint</text>
+<!-- application plane -->
+<rect x="78" y="610" width="1628" height="330" rx="16" fill="#f2f6fa" stroke="#c4d2df" stroke-width="1.2"/>
+<text x="102" y="641" class="band">C  /  APPLICATION &amp; COMPUTE PLANE</text>
+
+<!-- MCP cards -->
+<rect x="104" y="662" width="490" height="246" rx="14" class="white"/>
+<rect x="104" y="662" width="490" height="10" rx="5" fill="#3d6f9e"/>
+<text x="132" y="707" class="node">Spark MCP server</text>
+<rect x="430" y="682" width="136" height="26" rx="13" fill="#e4edf7"/>
+<text x="498" y="700" text-anchor="middle" class="tag" fill="#315d83">READ-ONLY</text>
+<text x="132" y="735" class="desc">Container :8000/mcp · host 127.0.0.1:8002</text>
+<text x="132" y="770" class="desc">• Session / cluster information</text>
+<text x="132" y="797" class="desc">• Database, table and schema discovery</text>
+<text x="132" y="824" class="desc">• Single bounded SELECT · row limit enforced</text>
+<text x="132" y="870" class="mono">SPARK_MASTER=spark://spark-master:7077</text>
+
+<rect x="620" y="662" width="490" height="246" rx="14" class="white"/>
+<rect x="620" y="662" width="490" height="10" rx="5" fill="#16827d"/>
+<text x="648" y="707" class="node">MinIO MCP server</text>
+<rect x="946" y="682" width="136" height="26" rx="13" fill="#e1f1ef"/>
+<text x="1014" y="700" text-anchor="middle" class="tag" fill="#176c69">SCOPED ACCESS</text>
+<text x="648" y="735" class="desc">Container :8001/mcp · host 127.0.0.1:8003</text>
+<text x="648" y="770" class="desc">• Configured bucket allowlist / object listing</text>
+<text x="648" y="797" class="desc">• Metadata and bounded UTF-8 text reads</text>
+<text x="648" y="824" class="desc">• Optional writes · disabled by default</text>
+<text x="648" y="870" class="mono">MINIO_ENDPOINT=http://minio:9000</text>
+
+<!-- compute -->
+<rect x="1136" y="662" width="544" height="246" rx="14" class="white"/>
+<rect x="1136" y="662" width="544" height="10" rx="5" fill="#537fa8"/>
+<text x="1164" y="707" class="node">Apache Spark Standalone · 3.5.6</text>
+<rect x="1164" y="729" width="488" height="58" rx="9" class="blue"/>
+<text x="1186" y="754" class="node">Spark Master</text>
+<text x="1186" y="775" class="mono">spark-master:7077</text>
+<rect x="1164" y="802" width="234" height="74" rx="9" class="subcard"/>
+<text x="1186" y="832" class="node">Worker 01</text><text x="1186" y="855" class="desc">2 cores · 3 GiB</text>
+<rect x="1418" y="802" width="234" height="74" rx="9" class="subcard"/>
+<text x="1440" y="832" class="node">Worker 02</text><text x="1440" y="855" class="desc">2 cores · 3 GiB</text>
+
+<!-- additional services row -->
+<rect x="104" y="958" width="500" height="174" rx="14" class="white"/>
+<text x="132" y="994" class="node">JupyterLab</text>
+<text x="132" y="1022" class="desc">PySpark notebooks · Python workspace</text>
+<text x="132" y="1050" class="mono">jupyter:8888 · host 127.0.0.1:8888</text>
+<text x="132" y="1092" class="small">Spark client → spark-master:7077</text>
+
+<rect x="628" y="958" width="500" height="174" rx="14" class="white"/>
+<text x="656" y="994" class="node">MinIO object storage</text>
+<text x="656" y="1022" class="desc">S3 API :9000 · Console :9001</text>
+<text x="656" y="1050" class="mono">minio:9000 · bucket allowlist: lakehouse</text>
+<text x="656" y="1092" class="small">Independent object store · persistent minio_data volume</text>
+
+<rect x="1152" y="958" width="528" height="174" rx="14" class="white"/>
+<text x="1180" y="994" class="node">Ollama</text>
+<text x="1180" y="1022" class="desc">Local model runtime · internal API :11434</text>
+<text x="1180" y="1050" class="mono">ollama:11434 · host 127.0.0.1:11434</text>
+<text x="1180" y="1092" class="small">Model persistence: ollama_models</text>
+
+<!-- routing arrows from gateway to MCP -->
+<path d="M1530 586 V598 H350 V662" class="solid"/>
+<text x="930" y="594" text-anchor="middle" class="tiny">/spark/mcp → spark-mcp:8000/mcp</text>
+<path d="M1530 598 H865 V662" class="solid"/>
+<text x="1190" y="617" text-anchor="middle" class="tiny">/minio/mcp → minio-mcp:8001/mcp</text>
+<path d="M594 785 H1136" class="solid"/>
+<text x="865" y="771" text-anchor="middle" class="tiny">Spark MCP → Spark RPC</text>
+<path d="M1110 838 H1136" class="solid" opacity="0"/>
+<path d="M360 908 V934 H350 V958" class="solid"/>
+<path d="M865 908 V934 H865 V958" class="solid"/>
+<path d="M1408 908 V934 H1416 V958" class="solid"/>
+<path d="M604 1044 H628" class="solid" opacity="0"/>
+
+<!-- persistence plane -->
+<rect x="78" y="1200" width="1628" height="88" rx="14" fill="#fff" stroke="#c6d3df" stroke-width="1.2"/>
+<text x="102" y="1232" class="band">D  /  PERSISTENCE &amp; DATA DOMAINS</text>
+<rect x="470" y="1214" width="330" height="54" rx="9" class="amber"/>
+<text x="635" y="1237" text-anchor="middle" class="node">./lakehouse → /lakehouse</text>
+<text x="635" y="1257" text-anchor="middle" class="tiny">Shared bind mount · Spark + Jupyter + Spark MCP</text>
+<rect x="818" y="1214" width="250" height="54" rx="9" class="amber"/>
+<text x="943" y="1237" text-anchor="middle" class="node">minio_data</text>
+<text x="943" y="1257" text-anchor="middle" class="tiny">Object data volume</text>
+<rect x="1086" y="1214" width="250" height="54" rx="9" class="amber"/>
+<text x="1211" y="1237" text-anchor="middle" class="node">ollama_models</text>
+<text x="1211" y="1257" text-anchor="middle" class="tiny">Model cache / weights</text>
+<rect x="1354" y="1214" width="320" height="54" rx="9" class="amber"/>
+<text x="1514" y="1237" text-anchor="middle" class="node">jupyter_config · tailscale_state</text>
+<text x="1514" y="1257" text-anchor="middle" class="tiny">Notebook config · tailnet identity</text>
+
+<!-- phase boundary footnote -->
+<rect x="48" y="1298" width="1704" height="1" fill="#cad5df"/>
+<text x="68" y="1314" class="small">PHASE BOUNDARY: Spark uses the shared local /lakehouse filesystem in Phase 1. Spark S3A ↔ MinIO integration is Phase 2 (dashed/roadmap only).</text>
+<text x="1730" y="1314" text-anchor="end" class="tiny">DATA2AI · ARCHITECTURE BASELINE · SINGLE-HOST LAB, NOT HA PRODUCTION</text>
 </svg>

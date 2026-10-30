@@ -55,6 +55,9 @@ spark.stop()
 PY
 pass "Jupyter-to-Spark integration job"
 
+docker compose exec -T jupyter python3 /workspace/notebooks/validate_minio_s3a.py || fail "Spark S3A to MinIO end-to-end validation"
+pass "Spark S3A write/read Parquet integration"
+
 docker compose exec -T ollama ollama list >/dev/null || fail "Ollama API/container check"
 pass "Ollama API/container responds"
 

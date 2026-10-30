@@ -18,7 +18,7 @@ A containerized Spark Lakehouse and MCP platform for Data Engineering and Agenti
 | Tailscale | Containerized userspace networking | Private tailnet |
 | Tailscale Serve | HTTPS 443, configured from JSON | Tailnet only; Funnel disabled |
 
-MinIO is the canonical object-storage layer for the Lakehouse (Raw → Bronze → Silver → Gold). The Compose configuration now builds a Spark image with the Hadoop S3A connector and configures Spark drivers/workers to access the MinIO `lakehouse` bucket. After creating the dedicated Spark MinIO service account, rebuild the images and run `./scripts/validate.sh` to verify distributed Parquet write/read. The local `./lakehouse` mount is retained only for transitional scratch/import workflows. Retail ingestion, CrewAI orchestration, and Streamlit dashboards remain later phases.
+MinIO is the canonical object-storage layer for the Lakehouse (Raw → Bronze → Silver → Gold). The Compose configuration now builds a Spark image with the Hadoop S3A connector and configures Spark drivers/workers to access the MinIO `lakehouse` bucket. Compose reuses the existing MinIO root credentials for Spark S3A in this simple single-user lab profile; no extra Spark credentials or setup command are required. Create the `lakehouse` bucket once in the MinIO Console, rebuild the images and run `./scripts/validate.sh` to verify distributed Parquet write/read. The local `./lakehouse` mount is retained only for transitional scratch/import workflows. Retail ingestion, CrewAI orchestration, and Streamlit dashboards remain later phases.
 
 ## 2. Architecture
 
@@ -135,15 +135,13 @@ Ensure these variables exist and contain real values:
 JUPYTER_TOKEN=<a-long-random-secret>
 MINIO_ROOT_USER=<your-minio-admin-user>
 MINIO_ROOT_PASSWORD=<a-long-random-password>
-SPARK_S3A_ACCESS_KEY=<dedicated-spark-minio-service-account-key>
-SPARK_S3A_SECRET_KEY=<dedicated-spark-minio-service-account-secret>
 SPARK_BASE_IMAGE=apache/spark:3.5.6-scala2.12-java17-python3-ubuntu
 SPARK_IMAGE=spark-lakehouse-s3a:3.5.6
 TS_AUTHKEY=tskey-auth-<your-tagged-reusable-key>
 TS_HOSTNAME=spark-lakehouse-agent
 ```
 
-Create a dedicated MinIO Spark service account and attach the bucket-scoped policy in [the S3A/MinIO runbook](docs/storage/MINIO-SPARK-S3A.md). Existing deployments must update `SPARK_IMAGE` to `spark-lakehouse-s3a:3.5.6` and add the new `SPARK_BASE_IMAGE` and `SPARK_S3A_*` variables; the existing `.env` is intentionally not overwritten. Keep its access key and secret in the two `SPARK_S3A_*` variables; do not reuse MinIO root credentials. Use the actual variable names and any additional required settings already present in your `.env.example`. Do not paste secrets into chat, commit `.env`, or give the platform Tailscale auth key to students. The Tailscale key must be a reusable, non-ephemeral key restricted to `tag:spark-lakehouse-mcp`. If you need to replace a key, create the replacement in the Tailscale admin console and update only the `TS_AUTHKEY` value.
+For this single-user lab profile, Spark automatically reuses `MINIO_ROOT_USER` and `MINIO_ROOT_PASSWORD` already configured in `.env`; do not add `SPARK_S3A_*` variables. This avoids manual key creation and extra shell commands. Create the `lakehouse` bucket once in the MinIO Console if it does not exist. Note that this gives Spark MinIO administrative privileges; use a dedicated bucket-scoped identity before enabling untrusted student workloads or production data. Existing deployments must update `SPARK_IMAGE` to `spark-lakehouse-s3a:3.5.6` and add `SPARK_BASE_IMAGE`; the existing `.env` is intentionally not overwritten. Use the actual variable names and any additional required settings already present in your `.env.example`. Do not paste secrets into chat, commit `.env`, or give the platform Tailscale auth key to students. The Tailscale key must be a reusable, non-ephemeral key restricted to `tag:spark-lakehouse-mcp`. If you need to replace a key, create the replacement in the Tailscale admin console and update only the `TS_AUTHKEY` value.
 
 Check that the key is not still the sample placeholder without printing the secret:
 

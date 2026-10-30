@@ -2,7 +2,7 @@
 
 A local, Docker Compose-based foundation for a multi-agent retail analytics lakehouse.
 
-**Phase 1 services:** Apache Spark Standalone (1 master + 2 workers), JupyterLab, Ollama, and MinIO.
+**Phase 1 services:** Apache Spark Standalone (1 master + 2 workers), JupyterLab, Ollama, MinIO, Spark MCP and MinIO MCP.
 
 - **Spark:** 3.5.6
 - **JupyterLab:** 4.4.5 (custom image)
@@ -11,7 +11,7 @@ A local, Docker Compose-based foundation for a multi-agent retail analytics lake
 - **Storage layout:** shared local Bronze / Silver / Gold directories
 - **Deployment:** Docker Compose v2
 
-> **Scope:** Phase 1 deploys and validates the local infrastructure. Retail ingestion, Spark S3A/MinIO integration, CrewAI orchestration, and Streamlit dashboards are planned for later phases. MinIO is running and persistent, but Spark-to-MinIO S3A access is not configured in Phase 1.
+> **Scope:** Phase 1 deploys and validates the local infrastructure. Retail ingestion, Spark S3A/MinIO integration, CrewAI orchestration, and Streamlit dashboards are planned for later phases. Spark and MinIO MCP servers are included as agent-facing interfaces. MinIO is running and persistent, but Spark-to-MinIO S3A access is not configured in Phase 1.
 
 ---
 
@@ -50,7 +50,15 @@ flowchart TB
     WORKER1 <-->|"shared volume mount"| LAKE
     WORKER2 <-->|"shared volume mount"| LAKE
   end
-  OLLAMA -.->|"Network endpoint available; agent integration is future work"| JUPYTER
+  SPARK_MCP["Spark MCP<br/>Streamable HTTP · 8000"]
+  MINIO_MCP["MinIO MCP<br/>Streamable HTTP · 8001"]
+  AGENT["Compatible Agent Runtime"]
+  JUPYTER -->|"Spark client"| MASTER
+  SPARK_MCP -->|"Spark client"| MASTER
+  MINIO_MCP -->|"S3 API"| MINIO
+  AGENT -->|"MCP / Streamable HTTP"| SPARK_MCP
+  AGENT -->|"MCP / Streamable HTTP"| MINIO_MCP
+  OLLAMA -.->|"LLM inference endpoint"| AGENT
   LAKE -.->|"S3A connector + bucket configuration · Phase 2"| MINIO
   classDef compute fill:#eaf2fb,stroke:#527fa8,color:#17324d
   classDef workspace fill:#f1edfa,stroke:#8b78b6,color:#33234e
@@ -58,6 +66,7 @@ flowchart TB
   classDef model fill:#eaf5ef,stroke:#47845e,color:#183c27
   class MASTER,WORKER1,WORKER2 compute
   class JUPYTER workspace
+  class SPARK_MCP,MINIO_MCP,AGENT workspace
   class LAKE,MINIO storage
   class OLLAMA model
 ```
@@ -292,7 +301,149 @@ Expected result: `Rows processed: 1000`, with the Spark master shown as `spark:/
 
 The validation script performs a similar integration test and also checks service health and MinIO's live endpoint.
 
-## 10. Lakehouse workspace
+## 10. Agent integration through MCP
+
+Phase 1 includes two Model Context Protocol (MCP) servers. They expose Spark and MinIO capabilities to compatible agents through **Streamable HTTP**. The MCP servers are separate services; the project does not prescribe a specific agent framework.
+
+### Service endpoints
+
+| MCP server | Host endpoint | Docker-network endpoint | Purpose |
+|---|---|---|---|
+| Spark MCP | `http://localhost:8002/mcp` | `http://spark-mcp:8000/mcp` | Spark session, catalog discovery, schema inspection and bounded read-only SQL |
+| MinIO MCP | `http://localhost:8003/mcp` | `http://minio-mcp:8001/mcp` | Allowed-bucket discovery, object listing, metadata, bounded text reads and optional text writes |
+
+The host endpoints are bound to `127.0.0.1`. Use the Docker-network endpoints when the agent runtime is another container attached to `spark-lakehouse-network`.
+
+### Deploy or rebuild the MCP services
+
+The MCP services are part of the main Compose project. After configuring `.env`, run:
+
+```bash
+docker compose up -d --build spark-mcp minio-mcp
+docker compose ps spark-mcp minio-mcp
+docker compose logs -f spark-mcp minio-mcp
+```
+
+The Spark MCP service waits for the Spark master and both workers to become healthy. The MinIO MCP service starts after the MinIO container has started.
+
+### Spark MCP tools
+
+| Tool | Capability |
+|---|---|
+| `get_spark_session_info` | Spark version, application ID, master and current database |
+| `list_databases` | Discover databases |
+| `list_tables` | Discover tables and views in a database |
+| `describe_table` | Inspect a table schema |
+| `run_readonly_query` | Execute a single bounded `SELECT` query |
+
+The SQL tool rejects non-SELECT statements, semicolons, SQL comments and a set of prohibited commands/functions. Results are capped by `SPARK_MCP_MAX_ROWS` (default 100; hard maximum 500). This is a conservative application-level guardrail, not a substitute for Spark-side identity, authorization and data governance.
+
+### MinIO MCP tools
+
+| Tool | Capability |
+|---|---|
+| `list_buckets` | List only buckets in the configured allowlist |
+| `list_objects` | List up to 500 keys under an allowed prefix |
+| `get_object_metadata` | Inspect object metadata without downloading the object |
+| `read_text_object` | Read bounded UTF-8 text, JSON, CSV, YAML or Markdown objects |
+| `write_text_object` | Write a small text artifact when writes are explicitly enabled |
+
+The default bucket allowlist is `lakehouse`. Create that bucket in the MinIO Console before using the MCP tools, or change `MINIO_MCP_ALLOWED_BUCKETS` to match buckets that already exist.
+
+1. Open [MinIO Console](http://localhost:9001).
+2. Sign in using the MinIO credentials in `.env`.
+3. Create a bucket named `lakehouse`.
+4. For a shared or production-like environment, create a dedicated MinIO service account with access limited to the approved bucket and required prefixes. Set `MINIO_MCP_ACCESS_KEY` and `MINIO_MCP_SECRET_KEY` in `.env`; do not reuse the root account.
+5. Restart the MCP service after changing environment values: `docker compose up -d --force-recreate minio-mcp`.
+
+If the dedicated MCP credentials are left blank, the local lab server falls back to the MinIO root credentials. This is for isolated development only; use a least-privilege service account outside a disposable local lab.
+
+### Enable agent writes (optional)
+
+MinIO MCP is **read-only by default**. To enable controlled text writes, set:
+
+```dotenv
+MINIO_MCP_ALLOW_WRITES=true
+MINIO_MCP_WRITE_PREFIXES=agent-outputs/
+MINIO_MCP_ALLOWED_BUCKETS=lakehouse
+```
+
+Then recreate the service:
+
+```bash
+docker compose up -d --force-recreate minio-mcp
+```
+
+The write tool accepts only `text/*` or `application/json`, enforces a 1 MiB default payload limit, and restricts object keys to the configured write prefixes. The MinIO service account must independently have the required write permission. Do not grant broad bucket or administrative permissions merely to make the MCP tool work.
+
+### Connect a compatible agent
+
+For an agent running on the host, the following is a conceptual Streamable HTTP server configuration. Adapt the property names to the MCP client or agent framework you use:
+
+```json
+{
+  "mcpServers": {
+    "spark-lakehouse": {
+      "type": "http",
+      "url": "http://localhost:8002/mcp"
+    },
+    "minio-lakehouse": {
+      "type": "http",
+      "url": "http://localhost:8003/mcp"
+    }
+  }
+}
+```
+
+For an agent running inside the same Docker network, replace the URLs with `http://spark-mcp:8000/mcp` and `http://minio-mcp:8001/mcp`. Do not use `localhost` from a separate container to reach these services.
+
+### Agent workflow example
+
+```mermaid
+sequenceDiagram
+  autonumber
+  participant A as Data Agent
+  participant S as Spark MCP
+  participant SP as Spark Cluster
+  participant M as MinIO MCP
+  participant O as MinIO
+
+  A->>S: list_databases()
+  S->>SP: Spark catalog API
+  SP-->>S: Databases and tables
+  S-->>A: Catalog result
+  A->>S: run_readonly_query(SELECT ...)
+  S->>SP: Bounded read-only query
+  SP-->>S: Result rows
+  S-->>A: Structured result
+  A->>M: list_objects(lakehouse, bronze/)
+  M->>O: S3 ListObjectsV2
+  O-->>M: Object keys and metadata
+  M-->>A: Object inventory
+  opt Explicitly enabled output writing
+    A->>M: write_text_object(agent-outputs/report.json)
+    M->>O: PutObject (prefix and size checked)
+    O-->>M: Object ETag
+    M-->>A: Write result
+  end
+```
+
+**Important integration boundary:** Spark MCP queries the Spark cluster. MinIO MCP accesses the MinIO S3 API independently. Adding these MCP servers does **not** configure Spark S3A or make MinIO objects automatically queryable as Spark tables. The Spark-to-MinIO S3A connector, bucket provisioning automation and data-lake catalog integration remain Phase 2 work.
+
+### Security boundary
+
+- MCP HTTP endpoints are published only on host loopback by default; no authentication layer is configured in this local development stack.
+- Do not expose ports 8002/8003 to a LAN, public network or untrusted agent runtime. Remote deployment requires authenticated transport, TLS, network policy and an identity/authorization design.
+- Spark MCP exposes read-only catalog and SELECT operations with bounded results. Do not treat application-level SQL checks as a full security boundary.
+- MinIO MCP enforces a bucket allowlist, read/write size limits and write-prefix restrictions. MinIO IAM policies must enforce the same or stricter permissions.
+- Keep credentials in `.env`; never commit them or place them in agent prompts.
+- For production, use separate least-privilege identities, secret management, audit logging, TLS, and explicit per-agent authorization.
+
+Official references: [MCP Python SDK](https://py.sdk.modelcontextprotocol.io/v1/) · [Streamable HTTP transport](https://py.sdk.modelcontextprotocol.io/v1/).
+
+---
+
+## 11. Lakehouse workspace
 
 The host project contains a shared `lakehouse/` directory mounted into Spark and Jupyter containers:
 
@@ -307,7 +458,7 @@ lakehouse/
 
 Files written under `/lakehouse` in Jupyter or Spark containers are persisted in the project directory on the host. The `retail/` directory is mounted at `/workspace/retail` and reserved for the retail dataset and ingestion assets.
 
-## 11. Operations and maintenance
+## 12. Operations and maintenance
 
 Run commands from the project root.
 
@@ -347,7 +498,7 @@ docker compose up -d --build
 
 `docker compose down -v` **deletes those named volumes and their persisted data**. Use it only when you intentionally want a full reset. It does not replace a backup.
 
-## 12. Troubleshooting
+## 13. Troubleshooting
 
 | Symptom | Checks and remediation |
 |---|---|
@@ -372,7 +523,7 @@ docker system df
 
 Review logs before sharing them; remove tokens, passwords, and other sensitive values.
 
-## 13. Security and deployment boundary
+## 14. Security and deployment boundary
 
 - Change the sample Jupyter token and MinIO password before first use.
 - Never commit `.env`, credentials, tokens, private datasets, or model secrets.
@@ -382,7 +533,7 @@ Review logs before sharing them; remove tokens, passwords, and other sensitive v
 - MinIO is deployed with persistent storage, but Spark S3A dependencies/configuration and bucket provisioning are deferred to Phase 2. Phase 1 persists Parquet and other files on the shared local `/lakehouse` volume.
 - CrewAI agents and Streamlit dashboards are not part of the Phase 1 deployment.
 
-## 14. Project roadmap
+## 15. Project roadmap
 
 | Phase | Scope |
 |---|---|
@@ -391,7 +542,7 @@ Review logs before sharing them; remove tokens, passwords, and other sensitive v
 | **Phase 3 — Agent services** | CrewAI orchestration, Supervisor, Data Engineer, Data Analyst, Visualization Engineer |
 | **Phase 4 — Analytics application** | Streamlit application, Plotly dashboards, agent-assisted analytics |
 
-## 15. Further documentation
+## 16. Further documentation
 
 - [Phase 1 technical deployment notes](docs/PHASE-1.md)
 - [Docker Compose configuration](docker-compose.yml)

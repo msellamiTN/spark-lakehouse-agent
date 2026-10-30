@@ -134,6 +134,8 @@ Use Parquet as the baseline file format. Plain Parquet on S3A is not transaction
 | Symptom | Likely cause | Check |
 |---|---|---|
 | `ClassNotFoundException: org.apache.hadoop.fs.s3a.S3AFileSystem` | S3A JAR missing from runtime | Rebuild custom Spark image; inspect `/opt/spark/jars` |
+| Image build cannot download JARs | Outbound HTTPS to Maven Central is blocked | Verify the OVH host can reach `repo.maven.apache.org:443` |
+| Build fails Hadoop client JAR check | Spark base image does not contain the pinned Hadoop client | Keep the Spark 3.5.6 base image or align all Hadoop/S3A versions together |
 | `NoSuchMethodError` in Hadoop/AWS classes | Hadoop or AWS SDK version conflict | Keep hadoop-aws 3.3.4 and SDK bundle 1.12.262 aligned |
 | `AccessDenied` / HTTP 403 | Spark identity policy too narrow or wrong credentials | Check service account policy and loaded env presence without printing values |
 | `InvalidAccessKeyId` | Credentials not recognized by MinIO | Recreate the affected Compose containers after changing `.env` |

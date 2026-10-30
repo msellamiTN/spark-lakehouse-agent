@@ -4,10 +4,9 @@ FROM ${SPARK_IMAGE}
 USER root
 WORKDIR /app
 
+COPY requirements.txt /app/requirements.txt
 # Keep this server on the maintained MCP Python SDK v1 API line.
-RUN python3 -m pip install --no-cache-dir \
-    "mcp>=1.28,<2" \
-    "boto3==1.39.11"
+RUN python3 -m pip install --no-cache-dir -r /app/requirements.txt
 
 COPY spark_server.py /app/spark_server.py
 COPY minio_server.py /app/minio_server.py

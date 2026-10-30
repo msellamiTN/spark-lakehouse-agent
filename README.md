@@ -265,6 +265,8 @@ Once the containers are running, open these local endpoints:
 | Ollama API | [http://localhost:11434](http://localhost:11434) | Local HTTP API |
 | MinIO API | [http://localhost:9000](http://localhost:9000) | S3-compatible endpoint |
 | MinIO Console | [http://localhost:9001](http://localhost:9001) | User/password from `.env` |
+| Spark MCP | `http://localhost:8002/mcp` | Streamable HTTP; read-only Spark tools |
+| MinIO MCP | `http://localhost:8003/mcp` | Streamable HTTP; allowlisted object tools |
 
 If you changed a host port in `.env`, use that port instead of the default shown above. The services are published on loopback only; they are not exposed for remote access by default.
 

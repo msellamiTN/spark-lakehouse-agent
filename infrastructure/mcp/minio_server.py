@@ -81,14 +81,16 @@ def _write_key(key: str) -> str:
 
 @mcp.tool()
 def list_buckets() -> str:
-    """List only buckets explicitly permitted by MINIO_MCP_ALLOWED_BUCKETS."""
-    response = _client().list_buckets()
-    buckets = [
-        {"name": item["Name"], "created": item["CreationDate"].astimezone(timezone.utc).isoformat()}
-        for item in response.get("Buckets", [])
-        if item["Name"] in ALLOWED_BUCKETS
-    ]
-    return json.dumps({"allowed_buckets": sorted(ALLOWED_BUCKETS), "available": buckets}, indent=2)
+    """Check availability of configured buckets without requiring account-wide bucket enumeration."""
+    client = _client()
+    available = []
+    for name in sorted(ALLOWED_BUCKETS):
+        try:
+            response = client.head_bucket(Bucket=name)
+            available.append({"name": name, "accessible": True, "http_status": response.get("ResponseMetadata", {}).get("HTTPStatusCode")})
+        except Exception as exc:
+            available.append({"name": name, "accessible": False, "error": type(exc).__name__})
+    return json.dumps({"configured_allowlist": sorted(ALLOWED_BUCKETS), "buckets": available}, indent=2)
 
 
 @mcp.tool()

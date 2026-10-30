@@ -4,6 +4,11 @@ cd "$(dirname "$0")/.."
 [[ -f .env ]] || { echo "ERROR: .env is missing. Run ./scripts/setup.sh first."; exit 1; }
 TS_AUTHKEY_VALUE="$(sed -n 's/^TS_AUTHKEY=//p' .env | tail -n 1)"
 [[ -n "$TS_AUTHKEY_VALUE" && "$TS_AUTHKEY_VALUE" != *REPLACE* ]] || { echo "ERROR: Set a valid TS_AUTHKEY in .env."; exit 1; }
+spark_image_value="$(sed -n 's/^SPARK_IMAGE=//p' .env | tail -n 1)"
+[[ "$spark_image_value" == "spark-lakehouse-s3a:3.5.6" ]] || {
+  echo "ERROR: Set SPARK_IMAGE=spark-lakehouse-s3a:3.5.6 in .env."
+  exit 1
+}
 for key in SPARK_S3A_ACCESS_KEY SPARK_S3A_SECRET_KEY; do
   value="$(sed -n "s/^${key}=//p" .env | tail -n 1)"
   [[ -n "$value" && "$value" != replace-* ]] || {

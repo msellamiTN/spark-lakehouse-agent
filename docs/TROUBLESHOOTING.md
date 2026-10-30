@@ -212,9 +212,30 @@ Confirm SPARK_MASTER=spark://spark-master:7077, master health, and worker regist
 - Confirm both workers are healthy and registered.
 - Inspect Jupyter and Spark logs.
 
-### Spark writes locally but not to MinIO
+### Spark S3A ↔ MinIO integration
 
-Expected until Phase 2 S3A integration is installed and configured. Phase 1's /lakehouse mount is a filesystem path, not an S3 endpoint. MinIO MCP exposes object access to agents; it does not configure Spark's Hadoop S3A connector.
+Rebuild the custom Spark runtime and dependent Jupyter/MCP images after updating the repository:
+
+~~~bash
+docker compose config --quiet
+docker compose up -d --build
+docker compose ps
+./scripts/validate.sh
+~~~
+
+The S3A acceptance test is `notebooks/validate_minio_s3a.py`. It writes a temporary Parquet dataset under `lakehouse/_system/validation/`, reads it back through Spark executors, verifies the rows and removes only that unique test prefix.
+
+| Symptom | Likely cause | Safe diagnostic |
+|---|---|---|
+| S3A FileSystem class not found | Custom Spark image not rebuilt or JAR missing | `docker compose exec jupyter ls /opt/spark/jars/hadoop-aws-3.3.4.jar` |
+| Hadoop/AWS NoSuchMethodError | Dependency versions do not match | Check Hadoop 3.3.4, hadoop-aws 3.3.4 and AWS SDK bundle 1.12.262 |
+| HTTP 403 / AccessDenied | Spark service account policy | Check bucket-scoped List/Get/Put/Delete permissions for the test prefix |
+| InvalidAccessKeyId | Wrong or stale Spark service account key | Recreate Jupyter, Spark MCP and both workers after changing .env |
+| Driver works, executors fail | AWS credentials missing from worker containers | Run the boolean-only credential-presence checks in the [S3A runbook](storage/MINIO-SPARK-S3A.md) |
+| Could not resolve host minio | Driver not attached to Compose network or endpoint typo | Use `http://minio:9000` inside the Compose network |
+| Signature mismatch | Path-style/endpoint configuration mismatch | Verify `fs.s3a.path.style.access=true` and the configured endpoint |
+
+Do not print environment values while diagnosing credentials. Do not delete `minio_data`, run `docker compose down -v`, or reset MinIO to resolve an S3A error. See the [full S3A/MinIO runbook](storage/MINIO-SPARK-S3A.md).
 
 ## 6. Docker, host and persistence troubleshooting
 
@@ -260,7 +281,7 @@ Do not prune volumes or remove Docker data directories without confirming backup
 - 🧪 **Test one operation at a time:** bucket head, object listing, metadata/read, then an approved write.
 - 🧭 **Use the correct endpoint:** Spark and MinIO tools use different MCP paths.
 - 💾 **Protect persistent state:** container recreation should not require deleting volumes.
-- 📦 **Respect phase boundaries:** local filesystem lakehouse in Phase 1; Spark S3A/MinIO integration is Phase 2.
+- 📦 **Use the canonical lake:** MinIO is the Lakehouse object store; the local /lakehouse mount is transitional scratch/import space. S3A runtime acceptance is required after each rebuild.
 - 🚦 **Do not equate HTTP 200 with workload success:** inspect JSON-RPC result and verify backend state.
 - 📝 **Record the baseline:** image tags, Compose revision, validation date, and non-secret overrides.
 
@@ -300,4 +321,4 @@ Never attach .env, Tailscale auth keys, MinIO secrets, or unredacted authorizati
 - The successful HeadBucket and list_buckets checks validate bucket access, not object listing, object reads, writes, or Spark S3A integration.
 - The credential alignment used for recovery is a temporary lab diagnostic measure. Replace it with a dedicated least-privilege MinIO service identity before treating the environment as a shared or production-like service.
 
-**Current validation boundary:** bucket-level access is confirmed. The next operational checks are list_objects, object metadata/read, an explicitly approved write/read round trip, and later Spark S3A integration as a separate Phase 2 task.
+**Current validation boundary:** bucket-level access was confirmed in the earlier MinIO MCP diagnostic. That check does not prove the newly configured Spark S3A integration. Rebuild the custom Spark image, provision the separate Spark service identity, then run the distributed Parquet round-trip validation.

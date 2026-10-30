@@ -569,6 +569,7 @@ For full setup, architecture, Windows DNS troubleshooting, Colab notebook cells,
 - [Secure remote MCP access with Tailscale](docs/mcp/REMOTE-ACCESS.md)
 - [Remote MCP access from Windows and Google Colab](docs/mcp/COLAB-ACCESS.md)
 - [Google Colab private MCP validation notebook](notebooks/01_colab_private_mcp_validation.ipynb)
+- [Dockerized Tailscale access for student projects](docs/mcp/DOCKER-TAILSCALE-STUDENT-LAB.md)
 - [Remote MCP access from Windows and Google Colab](docs/mcp/COLAB-ACCESS.md)
 - [Tailscale userspace networking documentation](https://tailscale.com/docs/concepts/userspace-networking)
 

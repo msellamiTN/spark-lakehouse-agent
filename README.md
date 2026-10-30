@@ -442,6 +442,50 @@ sequenceDiagram
 
 Official references: [MCP Python SDK](https://py.sdk.modelcontextprotocol.io/v1/) · [Streamable HTTP transport](https://py.sdk.modelcontextprotocol.io/v1/).
 
+### Secure remote MCP access with Tailscale (Ubuntu)
+
+The default loopback bindings intentionally prevent direct LAN or Internet access. To connect an agent on another trusted device, use a private Tailscale tailnet rather than opening Docker ports on your router.
+
+Install and authenticate Tailscale on the Ubuntu host:
+
+```bash
+sudo apt-get update
+sudo apt-get install -y curl
+curl -fsSL https://tailscale.com/install.sh | sh
+sudo systemctl enable --now tailscaled
+sudo tailscale up
+```
+
+Open the authentication URL printed by `tailscale up`, sign in, and authorize the Ubuntu host. Install Tailscale and sign in to the **same tailnet** on the remote agent/client device as well.
+
+Verify that the daemon is running and the host is connected:
+
+```bash
+tailscale version
+systemctl status tailscaled --no-pager
+tailscale status
+tailscale ip -4
+```
+
+Only after both devices are connected to the same tailnet, publish the loopback-only MCP services through Tailscale Serve:
+
+```bash
+sudo tailscale serve --bg --https=443 127.0.0.1:8002
+sudo tailscale serve --bg --https=8443 127.0.0.1:8003
+sudo tailscale serve status
+```
+
+Use the exact HTTPS hostnames and paths reported by `tailscale serve status` in the remote MCP client:
+
+- Spark MCP: `https://<your-tailscale-dns-name>/mcp`
+- MinIO MCP: `https://<your-tailscale-dns-name>:8443/mcp`
+
+Do not guess the Tailscale DNS name. Keep Docker's `127.0.0.1` port bindings unchanged. Do **not** enable Tailscale Funnel, configure public router port forwarding, or expose Jupyter, Spark UIs/RPC, Ollama, or MinIO directly. Tailscale network membership is not a substitute for application-level MCP authentication and authorization; restrict tailnet access with ACLs/grants and use least-privilege MinIO credentials.
+
+If the shell reports `tailscale: command not found`, the Tailscale client is not installed (or is not on the command path). Complete the installation and `tailscale up` steps above before running any `tailscale serve` command.
+
+For the full setup, remote-client configuration, verification and removal instructions, see the [Secure remote MCP access with Tailscale guide](docs/mcp/REMOTE-ACCESS.md). Official installation reference: [Tailscale on Linux](https://tailscale.com/docs/install/linux).
+
 ---
 
 ## 11. Lakehouse workspace

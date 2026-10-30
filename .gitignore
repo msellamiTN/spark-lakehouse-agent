@@ -1,0 +1,12 @@
+.env
+.ipynb_checkpoints/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.DS_Store
+lakehouse/bronze/*
+lakehouse/silver/*
+lakehouse/gold/*
+!lakehouse/bronze/.gitkeep
+!lakehouse/silver/.gitkeep
+!lakehouse/gold/.gitkeep

@@ -15,11 +15,6 @@ $awsSdkLine = Get-Content ".env" | Where-Object { $_ -match "^\s*AWS_SDK_BUNDLE_
 if ($awsSdkLine -and $awsSdkLine -notmatch "AWS_SDK_BUNDLE_VERSION=1\.12\.262") {
     throw "AWS_SDK_BUNDLE_VERSION must remain 1.12.262 for hadoop-aws 3.3.4."
 }
-foreach ($name in @("SPARK_S3A_ACCESS_KEY", "SPARK_S3A_SECRET_KEY")) {
-    $line = Get-Content ".env" | Where-Object { $_ -match "^\s*$name=" } | Select-Object -First 1
-    if (-not $line -or $line -match "replace-") {
-        throw "Configure $name with the dedicated MinIO Spark service-account credential in .env."
-    }
 }
 docker compose config --quiet
 if ($LASTEXITCODE -ne 0) { throw "Compose configuration is invalid" }

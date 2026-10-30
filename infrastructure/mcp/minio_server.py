@@ -48,6 +48,7 @@ def _client():
             connect_timeout=5,
             read_timeout=20,
             retries={"max_attempts": 2},
+            s3={"addressing_style": "path"},
         ),
     )
 

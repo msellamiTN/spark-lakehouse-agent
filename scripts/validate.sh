@@ -8,23 +8,27 @@ pass() { echo "PASS: $*"; }
 docker compose config --quiet || fail "Compose configuration is invalid"
 pass "Compose configuration"
 
-for svc in spark-master spark-worker-1 spark-worker-2 jupyter ollama minio spark-mcp minio-mcp; do
+for svc in spark-master spark-worker-1 spark-worker-2 jupyter ollama minio spark-mcp minio-mcp mcp-gateway tailscale; do
   state="$(docker compose ps --status running --services | grep -Fx "$svc" || true)"
   [[ -n "$state" ]] || fail "$svc is not running"
   if [[ "$svc" == "minio" ]]; then
     pass "$svc is running"
     continue
   fi
-  health="$(docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}no-healthcheck{{end}}' \
-    "$(docker compose ps -q "$svc")")"
+  if [[ "$svc" == "tailscale" ]]; then
+    pass "$svc container is running (tailnet validation follows)"
+    continue
+  fi
+  health="$(docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}no-healthcheck{{end}}' "$(docker compose ps -q "$svc")")"
   [[ "$health" == "healthy" ]] || fail "$svc health is $health"
   pass "$svc is running and healthy"
 done
 
-docker compose exec -T spark-master bash -lc \
-  "curl -fsS http://localhost:8080/ | grep -q 'Spark Master'" \
-  || fail "Spark master UI check"
+docker compose exec -T spark-master bash -lc "curl -fsS http://localhost:8080/ | grep -q 'Spark Master'" || fail "Spark master UI check"
 pass "Spark master web UI"
+
+docker compose exec -T mcp-gateway wget -q -O /dev/null http://127.0.0.1:8080/healthz || fail "MCP gateway health"
+pass "MCP gateway health"
 
 docker compose exec -T spark-mcp python3 -m unittest discover -s /app/tests -v || fail "MCP guardrail unit tests"
 pass "MCP guardrail unit tests"
@@ -47,13 +51,12 @@ assert rows == 1000, rows
 print(f"Spark distributed count: {rows}")
 print("Spark version:", spark.version)
 print("Master:", spark.sparkContext.master)
-print("Executors:", spark.sparkContext._jsc.sc().getExecutorMemoryStatus().size())
 spark.stop()
 PY
 pass "Jupyter-to-Spark integration job"
 
-docker compose exec -T ollama ollama list >/dev/null
-pass "Ollama API/container responds (model availability checked separately)"
+docker compose exec -T ollama ollama list >/dev/null || fail "Ollama API/container check"
+pass "Ollama API/container responds"
 
 docker compose exec -T jupyter python3 - <<'PY'
 import requests
@@ -63,14 +66,12 @@ print("MinIO live endpoint:", r.status_code)
 PY
 pass "MinIO HTTP health endpoint"
 
+docker compose exec -T tailscale tailscale status || fail "Tailscale node is not authenticated/connected"
+docker compose exec -T tailscale tailscale serve status || fail "Tailscale Serve configuration unavailable"
+pass "Tailscale node and Serve status"
+
 echo
-echo "All Phase 1 infrastructure and MCP service checks passed."
-echo "Open:"
-echo "  Spark Master:  http://localhost:8080"
-echo "  Worker 1:      http://localhost:8081"
-echo "  Worker 2:      http://localhost:8082"
-echo "  JupyterLab:    http://localhost:8888"
-echo "  Ollama API:    http://localhost:11434"
-echo "  MinIO Console: http://localhost:9001"
-echo "  Spark MCP:     http://localhost:8002/mcp"
-echo "  MinIO MCP:     http://localhost:8003/mcp"
+echo "All Phase 1 infrastructure checks passed."
+echo "Remote endpoints (replace <tailnet> with the actual MagicDNS suffix):"
+echo "  Spark MCP: https://spark-lakehouse-agent.<tailnet>.ts.net/spark/mcp"
+echo "  MinIO MCP: https://spark-lakehouse-agent.<tailnet>.ts.net/minio/mcp"

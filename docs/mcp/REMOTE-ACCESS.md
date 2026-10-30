@@ -1,48 +1,105 @@
 # Secure remote MCP access with Tailscale
 
-This guide exposes **only** the Spark MCP and MinIO MCP HTTP endpoints to authenticated devices in your Tailscale tailnet. It does not publish the services to the public Internet.
+This guide configures private HTTPS access to the Spark MCP and MinIO MCP services on the OVH Ubuntu VM from authorized remote devices. It covers the OVH-side configuration and Windows access. For the full Google Colab userspace-networking procedure, see [Remote MCP access from Windows and Google Colab](COLAB-ACCESS.md).
 
-## Why Tailscale instead of a public IP?
+**Security model:** Tailscale provides private connectivity; Tailscale Serve provides HTTPS routing; MCP provides the application protocol. These are separate layers. This guide does not publish MCP to the public Internet.
 
-The Compose deployment deliberately binds MCP host ports to `127.0.0.1`. Keep that protection. A public IP returned by an outbound IP-check service may be a NAT gateway address, may be shared through carrier-grade NAT (CGNAT), and does not prove that inbound connections can reach this host.
+## 1. Architecture
 
-Tailscale Serve provides HTTPS endpoints inside your private tailnet while proxying to the existing loopback-only services. No Docker port-binding changes, router port forwarding, or public firewall openings are required.
+```mermaid
+flowchart TB
+  subgraph REMOTE["Authorized remote clients"]
+    WIN["Windows PC"]
+    CHROME["Chrome / MCP client"]
+    COLAB["Google Colab"]
+    PY["MCP client + SOCKS5 proxy"]
+    WIN --> CHROME
+    COLAB --> PY
+  end
 
-## 1. Install and connect Tailscale
+  subgraph TAILNET["Private Tailscale tailnet"]
+    CHROME -->|"Windows Tailscale client"| TS["Encrypted tailnet"]
+    PY -->|"Userspace Tailscale<br/>SOCKS5 :1055"| TS
+  end
 
-Install Tailscale on the Ubuntu host and on each authorized agent/client machine, then sign both into the same tailnet. Follow the official installation guide for your operating system:
+  subgraph OVH["OVH Ubuntu VM"]
+    TS --> DNS["MagicDNS hostname<br/>hadoop.<tailnet>.ts.net<br/>100.x.y.z"]
+    subgraph SERVE["Tailscale Serve · tailnet only"]
+      DNS --> HTTPS["HTTPS :443 /mcp"]
+      DNS --> HTTPS2["HTTPS :8443 /mcp"]
+    end
+    subgraph DOCKER["Docker Compose"]
+      HTTPS --> S["Spark MCP<br/>127.0.0.1:8002"]
+      HTTPS2 --> M["MinIO MCP<br/>127.0.0.1:8003"]
+      S --> SPARK["Spark cluster"]
+      M --> MINIO["MinIO"]
+    end
+    PUB["OVH public IPv4<br/>not used for private MCP"]
+  end
+```
 
-- https://tailscale.com/download
-- https://tailscale.com/kb/1017/install
+- **Windows:** install and sign in to the Tailscale client. Chrome uses the VM's MagicDNS hostname over the Windows Tailscale interface.
+- **Colab:** it is not automatically in your tailnet. Start Tailscale in userspace mode and configure the Colab MCP HTTP transport to use its local SOCKS5 proxy. Follow [the Colab guide](COLAB-ACCESS.md).
+- **OVH:** Tailscale Serve proxies HTTPS requests to Docker-published loopback ports. No Compose binding changes are needed.
 
-On Ubuntu, confirm the host is connected:
+## 2. Understand the addresses
+
+The VM has two distinct addresses:
+
+- **OVH public IPv4:** used for ordinary public VM hosting/administration. Do not use it as the private MCP route.
+- **Tailscale IP:** a private tailnet address (typically in `100.64.0.0/10`).
+- **MagicDNS name:** `<machine>.<tailnet>.ts.net`, resolved for authorized tailnet devices.
+
+Do not attempt to point the Tailscale-managed `.ts.net` hostname to the OVH public IP. MagicDNS manages that name and resolves it to the Tailscale address.
+
+## 3. Install and connect Tailscale on OVH Ubuntu
+
+If not already installed:
 
 ```bash
+sudo apt-get update
+sudo apt-get install -y curl
+curl -fsSL https://tailscale.com/install.sh | sh
+sudo systemctl enable --now tailscaled
+sudo tailscale up
+```
+
+Authenticate using the URL printed by `tailscale up`. Then verify:
+
+```bash
+tailscale version
+sudo systemctl status tailscaled --no-pager
 tailscale status
 tailscale ip -4
 ```
 
-Enable HTTPS certificates for your tailnet if prompted by Tailscale Serve. Apply tailnet ACL/grant rules so only approved users and devices can reach this host.
+Record the machine's exact MagicDNS hostname and Tailscale IP.
 
-## 2. Confirm the local MCP services
+## 4. Verify the local MCP backends
 
-From the project directory:
+From the repository root:
 
 ```bash
 docker compose ps spark-mcp minio-mcp
-curl -sS -o /dev/null -w 'Spark MCP local HTTP: %{http_code}\n' http://127.0.0.1:8002/mcp
-curl -sS -o /dev/null -w 'MinIO MCP local HTTP: %{http_code}\n' http://127.0.0.1:8003/mcp
-```
-
-An HTTP response (including a protocol-level response such as 4xx for a plain GET) confirms the local listener is reachable; it is not a complete MCP protocol test. Run the project validation script for service integration checks:
-
-```bash
+curl -i http://127.0.0.1:8002/mcp
+curl -i http://127.0.0.1:8003/mcp
 sudo ./scripts/validate.sh
 ```
 
-## 3. Publish the two MCP endpoints inside the tailnet
+A plain GET can return an HTTP protocol response such as 400/405; use an MCP client to validate the actual Streamable HTTP initialize flow.
 
-The following uses two HTTPS listener ports on the same Tailscale DNS name. The backends remain bound to loopback:
+## 5. Enable MagicDNS and HTTPS certificates
+
+Open the [Tailscale DNS admin page](https://login.tailscale.com/admin/dns):
+
+1. Enable MagicDNS.
+2. Enable HTTPS Certificates.
+3. Review the Certificate Transparency notice: the hostname used for certificates is publicly recorded. Avoid sensitive machine names.
+4. Review ACL/grant policy so only approved devices/users can access the VM on TCP 443 and 8443.
+
+## 6. Publish MCP through Tailscale Serve
+
+The Docker Compose bindings must remain loopback-only. Publish the existing host listeners:
 
 ```bash
 sudo tailscale serve --bg --https=443 127.0.0.1:8002
@@ -50,48 +107,75 @@ sudo tailscale serve --bg --https=8443 127.0.0.1:8003
 sudo tailscale serve status
 ```
 
-Tailscale Serve should report the HTTPS DNS name for this machine. Use that exact name in the agent configuration; do not guess it.
+Use the exact hostname printed by Serve status. Expected mapping:
 
-- Spark MCP: `https://<your-tailscale-dns-name>/mcp`
-- MinIO MCP: `https://<your-tailscale-dns-name>:8443/mcp`
+```text
+https://hadoop.<tailnet>.ts.net (tailnet only)
+|-- / proxy http://127.0.0.1:8002
 
-These URLs are reachable only by authorized devices in the tailnet. Do **not** use Tailscale Funnel for these data-access services.
-
-## 4. Configure the remote MCP client
-
-Example Streamable HTTP configuration (adapt the schema to your MCP client):
-
-```json
-{
-  "mcpServers": {
-    "spark-lakehouse": {
-      "type": "http",
-      "url": "https://<your-tailscale-dns-name>/mcp"
-    },
-    "minio-lakehouse": {
-      "type": "http",
-      "url": "https://<your-tailscale-dns-name>:8443/mcp"
-    }
-  }
-}
+https://hadoop.<tailnet>.ts.net:8443 (tailnet only)
+|-- / proxy http://127.0.0.1:8003
 ```
 
-Replace the placeholder with the DNS name printed by `tailscale serve status`. The remote client must be connected to the same tailnet and permitted by its access policy.
+Endpoints:
 
-## 5. Verify from a second tailnet device
+- Spark MCP: `https://<actual-tailnet-hostname>/mcp`
+- MinIO MCP: `https://<actual-tailnet-hostname>:8443/mcp`
 
-On the remote client:
+## 7. Install Tailscale on Windows and use Chrome
 
-```bash
-curl -i https://<your-tailscale-dns-name>/mcp
-curl -i https://<your-tailscale-dns-name>:8443/mcp
+Download: [Tailscale for Windows](https://tailscale.com/download/windows).
+
+1. Install the client.
+2. Sign in with an account authorized for the same tailnet as the OVH VM.
+3. Confirm both devices appear in the [Tailscale Machines admin page](https://login.tailscale.com/admin/machines).
+4. Ensure **Use Tailscale DNS settings** is enabled in the Windows Tailscale client.
+5. Confirm MagicDNS is enabled in the DNS admin page.
+
+In PowerShell, replace the example hostname with the exact hostname from `tailscale serve status`:
+
+```powershell
+tailscale status
+tailscale ip -4
+tailscale ping hadoop
+Resolve-DnsName hadoop.<tailnet>.ts.net
+Test-NetConnection hadoop.<tailnet>.ts.net -Port 443
+Test-NetConnection hadoop.<tailnet>.ts.net -Port 8443
 ```
 
-A plain GET may not complete the MCP handshake; use your MCP client's Streamable HTTP connection/initialize flow to verify protocol interoperability. Also verify that a device outside the tailnet cannot reach these endpoints.
+Open in Chrome:
 
-## 6. Disable remote access
+- `https://hadoop.<tailnet>.ts.net/mcp`
+- `https://hadoop.<tailnet>.ts.net:8443/mcp`
 
-To remove only these two Serve listeners:
+A browser GET is not an MCP handshake. An HTTP 400/405 can be normal; use an MCP Streamable HTTP client for end-to-end protocol verification.
+
+### Windows DNS error: DNS_PROBE_FINISHED_NXDOMAIN
+
+1. Verify `tailscale status` shows both Windows and the OVH VM.
+2. Verify both devices are connected to the same tailnet.
+3. Verify MagicDNS is enabled.
+4. Verify Windows is using Tailscale DNS settings.
+5. Run `ipconfig /flushdns` and retry `Resolve-DnsName`.
+6. Test the VM's Tailscale IP directly: `Test-NetConnection <VM-TAILSCALE-IP> -Port 443`. If the IP works but the name does not, focus on DNS. If the IP fails too, investigate tailnet membership, ACL/grants, and Serve.
+
+Do not create a public A record for the Tailscale-managed hostname or map it to the OVH public IP.
+
+## 8. Google Colab
+
+Colab is a cloud-hosted runtime and does not inherit Windows' Tailscale connection. It needs a separate temporary Tailscale node using userspace networking and an ephemeral auth key stored in Colab Secrets.
+
+Follow the detailed, copyable notebook procedure in [COLAB-ACCESS.md](COLAB-ACCESS.md), including:
+- create a dedicated ephemeral auth key and restrict it with a tailnet tag/ACL;
+- store the key in Colab Secrets (never in notebook source);
+- start `tailscaled --tun=userspace-networking --socks5-server=127.0.0.1:1055`;
+- use `curl --socks5-hostname` for DNS and HTTPS smoke tests;
+- configure the MCP SDK's HTTP transport explicitly to use SOCKS5;
+- validate MCP initialize/Streamable HTTP, not only a browser-style GET.
+
+## 9. Disable remote MCP access
+
+Remove only these Serve routes:
 
 ```bash
 sudo tailscale serve --https=443 127.0.0.1:8002 off
@@ -99,18 +183,26 @@ sudo tailscale serve --https=8443 127.0.0.1:8003 off
 sudo tailscale serve status
 ```
 
-To remove all Serve configuration from this host instead, use `sudo tailscale serve reset` (this also removes any other Serve routes configured on the host).
+Use `sudo tailscale serve reset` only if you intend to remove every Serve route on this VM.
 
-## Security notes
+## 10. Security requirements
 
-- Keep the Docker Compose MCP bindings on `127.0.0.1`; do not replace them with `0.0.0.0` for this setup.
-- Do not expose JupyterLab, Spark master/worker UIs, MinIO API/console, Ollama, or Spark RPC through Tailscale Serve.
-- Do not enable Tailscale Funnel or create public router port-forwarding rules for these MCP services.
-- Restrict tailnet access with least-privilege ACLs/grants and use dedicated MinIO MCP credentials with the narrowest required bucket permissions. MinIO MCP writes remain disabled by default.
-- Tailscale Serve provides encrypted transport and tailnet-level access control. It does not add application-level MCP user authorization or per-tool approval. Treat all authorized tailnet devices as trusted to invoke the MCP tools exposed to them.
-- Keep credentials in the host's untracked `.env`; never commit them.
+- Keep Docker Compose MCP host bindings on `127.0.0.1`; do not change them to `0.0.0.0`.
+- Do not open OVH public firewall ports 8002/8003 or forward them from a router.
+- Do not enable Tailscale Funnel for these data-access services.
+- Do not publish JupyterLab, Spark UIs/RPC, MinIO API/console, or Ollama through these Serve routes.
+- Restrict tailnet access to approved users/devices and required destination ports only.
+- Use dedicated least-privilege MinIO MCP credentials; writes remain disabled by default.
+- Tailscale encryption and tailnet ACLs do not provide application-level MCP identity, per-tool authorization, or human approval.
+- Keep OVH credentials in the untracked `.env`; keep Colab auth keys in Colab Secrets. Revoke/rotate any exposed key.
 
-## References
+## 11. Official references
 
-- Tailscale Serve overview: https://tailscale.com/docs/features/tailscale-serve
-- Tailscale Serve CLI reference: https://tailscale.com/docs/reference/tailscale-cli/serve
+- [Tailscale userspace networking](https://tailscale.com/docs/concepts/userspace-networking)
+- [Tailscale MagicDNS](https://tailscale.com/docs/features/magicdns)
+- [Tailscale HTTPS certificates](https://tailscale.com/docs/how-to/set-up-https-certificates)
+- [Tailscale Serve](https://tailscale.com/docs/features/tailscale-serve)
+- [Tailscale Serve CLI](https://tailscale.com/docs/reference/tailscale-cli/serve)
+- [Tailscale auth keys](https://tailscale.com/kb/1085/auth-keys)
+- [Tailscale ACLs and grants](https://tailscale.com/kb/1018/acls)
+- [MCP Python SDK](https://py.sdk.modelcontextprotocol.io/v1/)

@@ -45,7 +45,7 @@ The `lakehouse` bucket contains logical `raw/`, `bronze/`, `silver/` and `gold/`
 - MinIO MCP is scoped to allowlisted object storage; text writes are disabled by default.
 - Spark Standalone has one master and two workers.
 - JupyterLab connects to spark://spark-master:7077.
-- Spark workers and Jupyter share the host-mounted /lakehouse directory.
+- Spark workers and Jupyter retain the host-mounted /lakehouse directory only for transitional scratch/import compatibility; canonical Raw/Bronze/Silver/Gold objects live in MinIO and are accessed through S3A.
 - Ollama is deployed; agent/application integration is not implemented in Phase 1.
 - MinIO is persistent and is the canonical Lakehouse storage layer. Compose now configures Spark S3A access; each host must rebuild the custom Spark image and pass the distributed Parquet write/read validation before the integration is marked operational.
 - Published service ports bind to loopback; remote MCP access uses Tailscale Serve.

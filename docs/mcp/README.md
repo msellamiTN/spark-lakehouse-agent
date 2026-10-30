@@ -146,7 +146,7 @@ Environment variables:
 
 ## 5. Agent client configuration
 
-For a client running on the OVH host, use the loopback Streamable HTTP endpoints below. Students on remote devices must use the Tailscale HTTPS endpoints. The exact configuration schema varies by agent host:
+For students and remote agent clients, configure the private Tailscale HTTPS endpoints below. The exact configuration schema varies by agent host:
 
 ```json
 {
@@ -163,7 +163,7 @@ For a client running on the OVH host, use the loopback Streamable HTTP endpoints
 }
 ```
 
-For an agent container on the Compose network:
+For an administrator client running on the OVH host, the loopback endpoints are `http://127.0.0.1:8002/mcp` and `http://127.0.0.1:8003/mcp`. For an agent container on the Compose network:
 
 - Spark: `http://spark-mcp:8000/mcp`
 - MinIO: `http://minio-mcp:8001/mcp`

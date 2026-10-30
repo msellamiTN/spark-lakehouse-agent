@@ -4,6 +4,8 @@ This guide explains how to reach the Spark MCP and MinIO MCP services running on
 
 > **Deployment model:** OVH public IPv4 is used for normal VM hosting/administration only. MCP traffic travels over Tailscale to the VM's Tailscale address. Do not point the Tailscale-managed `.ts.net` name at the OVH public IPv4.
 
+> **Runnable notebook:** [Open the Colab private MCP validation notebook](../../notebooks/01_colab_private_mcp_validation.ipynb). It contains the setup cells, SOCKS5 connectivity checks, TLS checks, and MCP initialize tests described below.
+
 ## 1. Target architecture
 
 The OVH VM runs Docker Compose. Docker publishes the MCP containers only on host loopback. Tailscale Serve terminates tailnet HTTPS and forwards requests to those loopback listeners.

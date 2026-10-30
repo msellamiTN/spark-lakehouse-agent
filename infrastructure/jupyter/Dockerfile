@@ -15,7 +15,7 @@ RUN python3 -m pip install --no-cache-dir --upgrade pip \
        requests==2.32.4 \
        python-dotenv==1.1.1
 
-RUN mkdir -p /workspace/notebooks /workspace/retail /lakehouse \
+RUN mkdir -p /workspace/notebooks /workspace/retail /lakehouse /home/spark/.jupyter \
     && chown -R spark:spark /workspace /lakehouse /home/spark
 
 USER spark

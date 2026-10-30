@@ -13,34 +13,14 @@ RUN set -eux; \
     test -f "/opt/spark/jars/hadoop-client-runtime-${HADOOP_VERSION}.jar"
 
 # Hadoop 3.3.4 hadoop-aws declares AWS SDK v1 bundle 1.12.262.
-RUN python3 - <<'PY'
-from pathlib import Path
-from urllib.request import urlretrieve
-import os
-
-hadoop_version = os.environ["HADOOP_VERSION"]
-aws_version = os.environ["AWS_SDK_BUNDLE_VERSION"]
-artifacts = [
-    (
-        f"https://repo.maven.apache.org/maven2/org/apache/hadoop/hadoop-aws/{hadoop_version}/hadoop-aws-{hadoop_version}.jar",
-        Path(f"/opt/spark/jars/hadoop-aws-{hadoop_version}.jar"),
-    ),
-    (
-        f"https://repo.maven.apache.org/maven2/com/amazonaws/aws-java-sdk-bundle/{aws_version}/aws-java-sdk-bundle-{aws_version}.jar",
-        Path(f"/opt/spark/jars/aws-java-sdk-bundle-{aws_version}.jar"),
-    ),
-]
-for url, destination in artifacts:
-    if not destination.exists():
-        print(f"Downloading {destination.name}")
-        urlretrieve(url, destination)
-    if destination.stat().st_size < 1_000_000:
-        raise RuntimeError(f"Unexpectedly small dependency: {destination}")
-PY
-
-RUN chown spark:spark \
-    "/opt/spark/jars/hadoop-aws-${HADOOP_VERSION}.jar" \
-    "/opt/spark/jars/aws-java-sdk-bundle-${AWS_SDK_BUNDLE_VERSION}.jar"
+ENV HADOOP_VERSION=${HADOOP_VERSION} \
+    AWS_SDK_BUNDLE_VERSION=${AWS_SDK_BUNDLE_VERSION}
+COPY download-s3a-jars.py /tmp/download-s3a-jars.py
+RUN python3 /tmp/download-s3a-jars.py \
+    && chown spark:spark \
+       "/opt/spark/jars/hadoop-aws-${HADOOP_VERSION}.jar" \
+       "/opt/spark/jars/aws-java-sdk-bundle-${AWS_SDK_BUNDLE_VERSION}.jar" \
+    && rm /tmp/download-s3a-jars.py
 
 USER spark
 

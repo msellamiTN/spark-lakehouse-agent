@@ -13,16 +13,16 @@
 | MinIO API | lakehouse-minio | http://localhost:9000 |
 | MinIO Console | lakehouse-minio | http://localhost:9001 |
 | Spark MCP | lakehouse-spark-mcp | http://localhost:8002/mcp |
-| MinIO MCP | lakehouse-minio-mcp | http://localhost:8003/mcp |
+| MinIO MCP | lakehouse-minio-mcp | http://localhost:8003/mcp |\n| Tailscale Serve | lakehouse-tailscale | https://<platform-fqdn>/spark/mcp and /minio/mcp |
 
 ## Requirements
 
-- Docker Desktop with Docker Compose v2, or Docker Engine + Compose plugin.
+- Docker Desktop with Docker Compose v2, or Docker Engine + Compose plugin.\n- For the default remote deployment, a tagged Tailscale auth key and tailnet admin setup (MagicDNS, HTTPS certificates, grants).
 - 16 GB RAM minimum recommended for a light local run; 32 GB preferred.
 - At least 20 GB free disk space if pulling the Qwen model.
 - Virtualization enabled when using Docker Desktop on Windows.
 
-The default worker allocation is 2 cores and 3 GiB per worker. Tune `.env` to fit the host. Leave memory for Docker, Ollama and the operating system.
+The default worker allocation is 2 cores and 3 GiB per worker. Tune `.env` to fit the host. Leave memory for Docker, Ollama and the operating system. Tailscale and Tailscale Serve run in the default Compose stack using userspace networking; no host `tailscaled`, `/dev/net/tun`, or manual `tailscale serve` command is required.
 
 ## Linux / macOS
 
@@ -47,7 +47,7 @@ Copy-Item .env.example .env
 docker compose exec ollama ollama pull qwen2.5:3b
 ```
 
-## MCP agent interfaces
+## Remote student access\n\nThe default Compose deployment includes a Tailscale container and declarative Tailscale Serve configuration. Students connect from Windows, macOS, or Linux using their own Tailscale client. Remote endpoints are `https://<platform-fqdn>/spark/mcp` and `https://<platform-fqdn>/minio/mcp`. See [the default deployment guide](mcp/DOCKER-TAILSCALE-STUDENT-LAB.md).\n\n## MCP agent interfaces
 
 Phase 1 includes two Streamable HTTP MCP servers for compatible agents:
 

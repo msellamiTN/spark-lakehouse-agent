@@ -14,5 +14,10 @@ foreach ($name in @("SPARK_S3A_ACCESS_KEY", "SPARK_S3A_SECRET_KEY")) {
     }
 }
 docker compose config --quiet
-docker compose up -d --build
+# Build the shared Spark/S3A base before Jupyter and MCP images that inherit it.
+docker compose build spark-master
+if ($LASTEXITCODE -ne 0) { throw "Spark S3A base image build failed" }
+docker compose build jupyter spark-mcp minio-mcp
+if ($LASTEXITCODE -ne 0) { throw "Jupyter/MCP image build failed" }
+docker compose up -d
 Write-Host "Complete platform started. Inspect with: docker compose exec tailscale tailscale status"

@@ -12,6 +12,8 @@
 | Ollama | lakehouse-ollama | http://localhost:11434 |
 | MinIO API | lakehouse-minio | http://localhost:9000 |
 | MinIO Console | lakehouse-minio | http://localhost:9001 |
+| Spark MCP | lakehouse-spark-mcp | http://localhost:8002/mcp |
+| MinIO MCP | lakehouse-minio-mcp | http://localhost:8003/mcp |
 
 ## Requirements
 
@@ -45,6 +47,15 @@ Copy-Item .env.example .env
 docker compose exec ollama ollama pull qwen2.5:3b
 ```
 
+## MCP agent interfaces
+
+Phase 1 includes two Streamable HTTP MCP servers for compatible agents:
+
+- Spark MCP: `http://localhost:8002/mcp` from the host; `http://spark-mcp:8000/mcp` from a container on `spark-lakehouse-network`.
+- MinIO MCP: `http://localhost:8003/mcp` from the host; `http://minio-mcp:8001/mcp` from a container on `spark-lakehouse-network`.
+
+Spark MCP exposes catalog discovery, schema inspection and bounded read-only SELECT queries. MinIO MCP exposes allowlisted bucket/object discovery, metadata and bounded text reads. Writes are disabled by default and can be enabled only through explicit configuration. Create the configured `lakehouse` bucket in MinIO before using the MinIO MCP tools. See [the MCP integration guide](mcp/README.md) for tool contracts, client configuration and security boundaries.
+
 ## Useful commands
 
 ```bash
@@ -72,4 +83,4 @@ docker compose down
 
 MinIO is deployed and persistent in Phase 1. Spark's S3A connector and MinIO bucket integration are deliberately deferred until Phase 2, where Hadoop AWS and AWS SDK dependency versions will be aligned with the Spark distribution. Phase 1 writes Parquet to the shared local `/lakehouse` volume.
 
-CrewAI and Streamlit are not started in Phase 1; they will be added after the Spark and storage foundation passes validation.
+CrewAI and Streamlit are not started in Phase 1; they will be added after the Spark and storage foundation passes validation. The Spark MCP and MinIO MCP services are available as agent-facing interfaces, but no agent runtime is bundled.

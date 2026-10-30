@@ -172,6 +172,80 @@ services:
     networks: [lakehouse]
     restart: unless-stopped
 
+
+  spark-mcp:
+    build:
+      context: ./infrastructure/mcp
+      args:
+        SPARK_IMAGE: ${SPARK_IMAGE}
+    image: ${MCP_IMAGE:-spark-lakehouse-mcp:3.5.6}
+    container_name: lakehouse-spark-mcp
+    hostname: spark-mcp
+    command: ["python3", "/app/spark_server.py"]
+    environment:
+      MCP_HOST: 0.0.0.0
+      MCP_PORT: "8000"
+      SPARK_MASTER: spark://spark-master:7077
+      SPARK_HOME: /opt/spark
+      PYSPARK_PYTHON: python3
+      SPARK_MCP_MAX_ROWS: ${SPARK_MCP_MAX_ROWS:-100}
+      SPARK_MCP_HARD_MAX_ROWS: ${SPARK_MCP_HARD_MAX_ROWS:-500}
+    ports:
+      - "127.0.0.1:${SPARK_MCP_PORT:-8002}:8000"
+    volumes:
+      - ./lakehouse:/lakehouse
+    depends_on:
+      spark-master:
+        condition: service_healthy
+      spark-worker-1:
+        condition: service_healthy
+      spark-worker-2:
+        condition: service_healthy
+    networks: [lakehouse]
+    healthcheck:
+      test: ["CMD", "python3", "-c", "import socket; socket.create_connection(('127.0.0.1', 8000), timeout=3).close()"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    restart: unless-stopped
+
+  minio-mcp:
+    build:
+      context: ./infrastructure/mcp
+      args:
+        SPARK_IMAGE: ${SPARK_IMAGE}
+    image: ${MCP_IMAGE:-spark-lakehouse-mcp:3.5.6}
+    container_name: lakehouse-minio-mcp
+    hostname: minio-mcp
+    command: ["python3", "/app/minio_server.py"]
+    environment:
+      MCP_HOST: 0.0.0.0
+      MCP_PORT: "8001"
+      MINIO_ENDPOINT: http://minio:9000
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+      MINIO_MCP_ACCESS_KEY: ${MINIO_MCP_ACCESS_KEY:-}
+      MINIO_MCP_SECRET_KEY: ${MINIO_MCP_SECRET_KEY:-}
+      MINIO_MCP_ALLOWED_BUCKETS: ${MINIO_MCP_ALLOWED_BUCKETS:-lakehouse}
+      MINIO_MCP_ALLOW_WRITES: ${MINIO_MCP_ALLOW_WRITES:-false}
+      MINIO_MCP_WRITE_PREFIXES: ${MINIO_MCP_WRITE_PREFIXES:-agent-outputs/}
+      MINIO_MCP_MAX_READ_BYTES: ${MINIO_MCP_MAX_READ_BYTES:-1048576}
+      MINIO_MCP_MAX_WRITE_BYTES: ${MINIO_MCP_MAX_WRITE_BYTES:-1048576}
+    ports:
+      - "127.0.0.1:${MINIO_MCP_PORT:-8003}:8001"
+    depends_on:
+      minio:
+        condition: service_started
+    networks: [lakehouse]
+    healthcheck:
+      test: ["CMD", "python3", "-c", "import socket; socket.create_connection(('127.0.0.1', 8001), timeout=3).close()"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    restart: unless-stopped
+
 networks:
   lakehouse:
     name: spark-lakehouse-network

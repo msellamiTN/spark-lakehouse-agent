@@ -26,6 +26,10 @@ docker compose exec -T jupyter python3 -c "import requests; r=requests.get('http
 Write-Host "PASS: MinIO HTTP health endpoint"
 docker compose exec -T spark-mcp python3 -m unittest discover -s /app/tests -v
 Write-Host "PASS: MCP guardrail unit tests"
+docker compose exec -T spark-mcp python3 -c "from spark_server import _spark; s=_spark(); print('Spark MCP connected:', s.version, s.sparkContext.master); s.stop()"
+if ($LASTEXITCODE -ne 0) { throw "Spark MCP to Spark cluster connectivity failed" }
+docker compose exec -T minio-mcp python3 -c "import urllib.request; r=urllib.request.urlopen('http://minio:9000/minio/health/live', timeout=5); print('MinIO MCP upstream:', r.status)"
+if ($LASTEXITCODE -ne 0) { throw "MinIO MCP to MinIO connectivity failed" }
 Write-Host "PASS: Spark MCP endpoint process is healthy (localhost:8002/mcp)"
 Write-Host "PASS: MinIO MCP endpoint process is healthy (localhost:8003/mcp)"
 Write-Host "All Phase 1 infrastructure and MCP service checks passed."

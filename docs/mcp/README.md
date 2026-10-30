@@ -23,6 +23,16 @@ docker compose logs -f spark-mcp minio-mcp
 
 Spark MCP depends on the healthy Spark master and both workers. MinIO MCP starts after the MinIO container has started. Both MCP servers are built from `infrastructure/mcp/Dockerfile` and run as the non-root `spark` user.
 
+### Run guardrail unit tests
+
+The MCP image includes standard-library unit tests for the SQL and object-key guardrails:
+
+```bash
+docker compose run --rm --no-deps spark-mcp python3 -m unittest discover -s /app/tests -v
+```
+
+These tests validate input guards only. They do not prove live Spark connectivity, MinIO authorization, or agent-host interoperability.
+
 ## 3. Spark MCP tool contract
 
 | Tool | Input | Behaviour |

@@ -38,6 +38,10 @@ spark.stop()
 if ($LASTEXITCODE -ne 0) { throw "Jupyter-to-Spark integration failed" }
 Write-Host "PASS: Jupyter-to-Spark integration"
 
+docker compose exec -T jupyter python3 /workspace/notebooks/validate_minio_s3a.py
+if ($LASTEXITCODE -ne 0) { throw "Spark S3A to MinIO end-to-end validation failed" }
+Write-Host "PASS: Spark S3A write/read Parquet integration"
+
 docker compose exec -T jupyter python3 -c "import requests; r=requests.get('http://minio:9000/minio/health/live',timeout=5); r.raise_for_status(); print('MinIO:',r.status_code)"
 if ($LASTEXITCODE -ne 0) { throw "MinIO health check failed" }
 Write-Host "PASS: MinIO upstream"

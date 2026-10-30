@@ -15,7 +15,7 @@ The custom Spark image is built from the pinned Apache Spark base image and adds
 
 Do not upgrade `hadoop-aws` independently. Hadoop's S3A connector and Hadoop client libraries must use identical versions; mismatches can cause linkage errors such as `NoSuchMethodError`. The build intentionally checks the Hadoop client JAR names before downloading the S3A dependencies.
 
-The image is built by `docker compose up -d --build`. Jupyter and both MCP images inherit the custom Spark image through their existing Docker build arguments.
+The image is built first by `./scripts/up.sh`; that script then builds Jupyter and both MCP images against the local custom Spark image. This explicit order avoids dependent Docker builds trying to pull the not-yet-built local base image.
 
 ## 2. MinIO bucket and service identity
 

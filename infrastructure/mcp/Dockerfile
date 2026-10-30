@@ -12,6 +12,8 @@ RUN python3 -m pip install --no-cache-dir \
 COPY spark_server.py /app/spark_server.py
 COPY minio_server.py /app/minio_server.py
 
+USER spark
+
 ENV PYTHONUNBUFFERED=1 \
     PYSPARK_PYTHON=python3 \
     SPARK_HOME=/opt/spark

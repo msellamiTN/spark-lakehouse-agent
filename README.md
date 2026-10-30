@@ -43,8 +43,8 @@ flowchart TB
     end
     JUPYTER["JupyterLab<br/>PySpark client · UI 8888"]
     OLLAMA["Ollama<br/>Qwen 2.5 3B · API 11434"]
-    LAKE[(["Shared host volume<br/>/lakehouse: raw · bronze · silver · gold · checkpoints"])]
-    MINIO[(["MinIO object storage<br/>S3 API 9000 · Console 9001"])]
+    LAKE[("Shared host volume<br/>/lakehouse: raw · bronze · silver · gold · checkpoints")]
+    MINIO[("MinIO object storage<br/>S3 API 9000 · Console 9001")]
     JUPYTER -->|"Spark connection"| MASTER
     JUPYTER <-->|"shared volume mount"| LAKE
     WORKER1 <-->|"shared volume mount"| LAKE

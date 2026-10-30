@@ -11,6 +11,7 @@ RUN python3 -m pip install --no-cache-dir \
 
 COPY spark_server.py /app/spark_server.py
 COPY minio_server.py /app/minio_server.py
+COPY tests /app/tests
 
 USER spark
 

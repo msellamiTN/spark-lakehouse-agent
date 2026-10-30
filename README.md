@@ -472,6 +472,7 @@ docker compose logs -f spark-worker-1 spark-worker-2
 docker compose logs -f jupyter
 docker compose logs -f ollama
 docker compose logs -f minio
+docker compose logs -f spark-mcp minio-mcp
 
 # Open a shell in Jupyter
 docker compose exec jupyter bash
@@ -545,6 +546,8 @@ Review logs before sharing them; remove tokens, passwords, and other sensitive v
 ## 16. Further documentation
 
 - [Phase 1 technical deployment notes](docs/PHASE-1.md)
+- [Spark and MinIO MCP integration guide](docs/mcp/README.md)
+- [Architecture diagram standards](docs/diagrams/README.md)
 - [Docker Compose configuration](docker-compose.yml)
 - [Environment template](.env.example)
 - [Spark smoke-test notebook](notebooks/00_phase1_spark_smoke_test.py)

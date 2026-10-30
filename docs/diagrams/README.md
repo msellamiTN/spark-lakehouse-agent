@@ -9,7 +9,7 @@ This directory contains the architecture assets for the Spark Lakehouse Agent Pl
 | [Phase 1 deployment architecture](phase-1-architecture.svg) | SVG | Presentation-ready deployment topology for the local Docker Compose environment | Current Phase 1 baseline |
 
 The editable Mermaid diagrams are maintained in the root [README](../../README.md):
-- Deployment topology: services, cluster relationships, network boundary and mounts.
+- Deployment topology: Spark, JupyterLab, Ollama, MinIO, Spark MCP, MinIO MCP, network boundaries, host endpoints and mounts.
 - Lakehouse lifecycle: source-to-consumption data progression.
 
 ## Source-of-truth rules
@@ -22,6 +22,10 @@ The editable Mermaid diagrams are maintained in the root [README](../../README.m
 6. **Preserve accessibility.** SVG files must include a descriptive `title` and `desc`, use legible labels, and remain readable at normal document scale.
 
 ## Phase 1 accuracy notes
+
+- Spark MCP is a read-only Streamable HTTP interface to Spark catalog discovery and bounded SELECT queries.
+- MinIO MCP is a scoped Streamable HTTP interface to allowlisted object storage; text writes are disabled by default.
+- MCP endpoints are loopback-published for local clients; compatible agent runtimes are not bundled in Phase 1.
 
 - Spark Standalone consists of one master and two workers.
 - JupyterLab connects to Spark using `spark://spark-master:7077`.

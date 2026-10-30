@@ -183,7 +183,7 @@ Use the supplied script so the shared Spark/S3A base image is built before Jupyt
 docker compose ps
 ```
 
-On Windows PowerShell, run ` .\\scripts\\up.ps1 `.
+On Windows PowerShell, run `.\\scripts\\up.ps1`.
 
 The default Compose file starts Spark, JupyterLab, Ollama, MinIO, both MCP servers, the Nginx gateway, and the Tailscale sidecar. **Do not add an overlay Compose file and do not run a host-level `tailscale serve` command.**
 

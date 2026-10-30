@@ -345,6 +345,7 @@ docker compose up -d
 - Funnel is disabled.
 - Do not expose Jupyter, Spark UI/RPC, MinIO API/console, Ollama, or Docker daemon to students.
 - Keep Spark MCP bounded and read-only; MinIO writes are disabled by default.
+- Spark uses a dedicated MinIO service account for S3A; do not reuse MinIO root credentials. The current shared Spark identity is not per-student isolation.
 - Tailscale ACLs control network reachability; they do not isolate individual student data, Spark sessions, MinIO buckets, or MCP tool permissions. Before sharing sensitive data or enabling writes, implement per-team buckets/service accounts and Spark-side authorization/session isolation.
 - This is a training/lab deployment, not a production-hardened multi-tenant platform.
 

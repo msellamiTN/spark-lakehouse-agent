@@ -33,6 +33,8 @@ def _spark() -> SparkSession:
         .appName(APP_NAME)
         .master(MASTER)
         .config("spark.sql.session.timeZone", "UTC")
+        .config("spark.driver.host", os.getenv("SPARK_DRIVER_HOST", "spark-mcp"))
+        .config("spark.driver.bindAddress", "0.0.0.0")
         .getOrCreate()
     )
 

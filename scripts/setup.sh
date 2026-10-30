@@ -15,7 +15,7 @@ fi
 TS_AUTHKEY_VALUE="$(sed -n 's/^TS_AUTHKEY=//p' .env | tail -n 1)"
 JUPYTER_TOKEN_VALUE="$(sed -n 's/^JUPYTER_TOKEN=//p' .env | tail -n 1)"
 MINIO_PASSWORD_VALUE="$(sed -n 's/^MINIO_ROOT_PASSWORD=//p' .env | tail -n 1)"
-[[ "$TS_AUTHKEY_VALUE" != "tskey-auth-REPLACE_WITH_YOUR_TAGGED_KEY" && -n "$TS_AUTHKEY_VALUE" ]] || {
+[[ -n "$TS_AUTHKEY_VALUE" && "$TS_AUTHKEY_VALUE" != *REPLACE* ]] || {
   echo "ERROR: Set TS_AUTHKEY in .env to a reusable auth key tagged tag:spark-lakehouse-mcp."
   exit 1
 }

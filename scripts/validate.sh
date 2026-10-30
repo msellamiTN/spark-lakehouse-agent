@@ -26,6 +26,9 @@ docker compose exec -T spark-master bash -lc \
   || fail "Spark master UI check"
 pass "Spark master web UI"
 
+docker compose exec -T spark-mcp python3 -m unittest discover -s /app/tests -v || fail "MCP guardrail unit tests"
+pass "MCP guardrail unit tests"
+
 docker compose exec -T jupyter python3 - <<'PY'
 from pyspark.sql import SparkSession
 spark = (SparkSession.builder

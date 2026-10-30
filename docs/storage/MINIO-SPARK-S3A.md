@@ -68,7 +68,7 @@ SPARK_S3A_SECRET_KEY=<dedicated-spark-service-account-secret-key>
 
 The Compose configuration injects these values into the Jupyter driver, Spark MCP driver, and Spark worker containers as `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY`. Hadoop S3A uses the AWS SDK environment-variable credential provider. Credentials are not stored in `spark-defaults.conf`, notebooks, or Git.
 
-Do not paste the values into chat, terminal transcripts, notebooks or logs. The startup script checks that both values are configured without printing them.
+Do not paste the values into chat, terminal transcripts, notebooks or logs. The startup script checks that both values are configured without printing them. For this single-host lab, Compose injects the values as container environment variables; production deployments should use Docker secrets or an external secret manager and stronger per-domain identities.
 
 ## 4. S3A configuration
 

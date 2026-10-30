@@ -122,7 +122,7 @@
 <path d="M1140 1010 V970 H1140 V760" class="flow"/>
 
 <!-- Future integration boundary and legend -->
-<path d="M1490 494 V770 H1450 V786" class="future"/>
+<path d="M1450 790 V770 H1490 V498" class="future"/>
 <text x="1490" y="770" text-anchor="end" class="micro">Spark S3A · Phase 2</text>
 <path d="M1180 970 H1240" class="flow"/>
 <text x="1260" y="975" class="micro">Configured path</text>

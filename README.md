@@ -25,61 +25,67 @@ The static SVG provides a presentation-friendly architecture overview. It is ver
 
 [Open the SVG source](docs/diagrams/phase-1-architecture.svg)
 
-### Editable architecture (Mermaid)
+### Editable deployment architecture (Mermaid)
 
-GitHub renders Mermaid directly in Markdown. Keep this diagram synchronized with `docker-compose.yml` when services or connections change.
+Use this diagram as the editable logical view. The SVG above is the presentation asset; this Mermaid source is intended for review and maintenance alongside `docker-compose.yml`.
 
 ```mermaid
 flowchart TB
-  subgraph HOST["Local workstation · Docker Compose network"]
+  subgraph HOST["LOCAL HOST · DOCKER COMPOSE NETWORK"]
     direction TB
-    subgraph COMPUTE["Distributed compute"]
+    subgraph SPARK["SPARK STANDALONE CLUSTER"]
+      direction TB
       MASTER["Spark Master<br/>RPC 7077 · UI 8080"]
-      W1["Spark Worker 1<br/>2 cores · 3 GiB"]
-      W2["Spark Worker 2<br/>2 cores · 3 GiB"]
-      MASTER --> W1
-      MASTER --> W2
+      WORKER1["Worker 01<br/>2 cores · 3 GiB · UI 8081"]
+      WORKER2["Worker 02<br/>2 cores · 3 GiB · UI 8082"]
+      MASTER -->|"schedule / manage"| WORKER1
+      MASTER -->|"schedule / manage"| WORKER2
     end
-    JUPYTER["JupyterLab<br/>PySpark notebooks · UI 8888"]
+    JUPYTER["JupyterLab<br/>PySpark client · UI 8888"]
     OLLAMA["Ollama<br/>Qwen 2.5 3B · API 11434"]
-    LAKE[("Shared /lakehouse volume<br/>raw · bronze · silver · gold · checkpoints")]
-    MINIO[("MinIO<br/>S3 API 9000 · Console 9001")]
-    JUPYTER -->|"Spark client protocol"| MASTER
-    JUPYTER <-->|"read / write"| LAKE
-    W1 <-->|"shared filesystem mount"| LAKE
-    W2 <-->|"shared filesystem mount"| LAKE
+    LAKE[(["Shared host volume<br/>/lakehouse: raw · bronze · silver · gold · checkpoints"])]
+    MINIO[(["MinIO object storage<br/>S3 API 9000 · Console 9001"])]
+    JUPYTER -->|"Spark connection"| MASTER
+    JUPYTER <-->|"shared volume mount"| LAKE
+    WORKER1 <-->|"shared volume mount"| LAKE
+    WORKER2 <-->|"shared volume mount"| LAKE
   end
-  OLLAMA -.->|"Available for later agent integration"| JUPYTER
-  LAKE -.->|"S3A connector + bucket integration · Phase 2"| MINIO
-  classDef compute fill:#eaf3fb,stroke:#3976a8,color:#17324d
-  classDef notebook fill:#f2edfb,stroke:#8263b5,color:#33234e
-  classDef storage fill:#fff5e4,stroke:#bd8731,color:#4b3512
-  classDef ai fill:#eaf6ef,stroke:#47845e,color:#183c27
-  class MASTER,W1,W2 compute
-  class JUPYTER notebook
+  OLLAMA -.->|"Network endpoint available; agent integration is future work"| JUPYTER
+  LAKE -.->|"S3A connector + bucket configuration · Phase 2"| MINIO
+  classDef compute fill:#eaf2fb,stroke:#527fa8,color:#17324d
+  classDef workspace fill:#f1edfa,stroke:#8b78b6,color:#33234e
+  classDef storage fill:#fff5e5,stroke:#bd8731,color:#4b3512
+  classDef model fill:#eaf5ef,stroke:#47845e,color:#183c27
+  class MASTER,WORKER1,WORKER2 compute
+  class JUPYTER workspace
   class LAKE,MINIO storage
-  class OLLAMA ai
+  class OLLAMA model
 ```
 
-### Data processing lifecycle (Mermaid)
+**Connection semantics:** solid arrows represent configured Phase 1 connections or shared mounts. Dashed arrows represent planned integration or application-level usage, not an active Phase 1 data path.
 
-This is the intended lakehouse progression. The folders exist in Phase 1; ingestion and transformation jobs are implemented in Phase 2.
+### Lakehouse data lifecycle (Mermaid)
+
+The following is the target processing sequence. Phase 1 creates the directory structure; retail ingestion, transformations, quality checks and data products belong to Phase 2.
 
 ```mermaid
 flowchart LR
-  SRC["Retail source data"] --> RAW["Raw landing"]
-  RAW --> BRONZE["Bronze<br/>source-aligned Parquet"]
-  BRONZE --> SILVER["Silver<br/>cleaned & conformed"]
-  SILVER --> GOLD["Gold<br/>business-ready data"]
-  GOLD --> BI["Future analytics & agents"]
-  style SRC fill:#eef2f7,stroke:#64748b,color:#1e293b
-  style RAW fill:#fff5e4,stroke:#bd8731,color:#4b3512
-  style BRONZE fill:#eaf3fb,stroke:#3976a8,color:#17324d
-  style SILVER fill:#eaf6ef,stroke:#47845e,color:#183c27
-  style GOLD fill:#f2edfb,stroke:#8263b5,color:#33234e
-  style BI fill:#fceeee,stroke:#b85c5c,color:#4b2020
+  SOURCE["Retail source<br/>dataset"] --> LANDING["Raw landing<br/>source extract"]
+  LANDING --> BRONZE["BRONZE<br/>immutable source-aligned data"]
+  BRONZE --> SILVER["SILVER<br/>validated, cleaned, conformed"]
+  SILVER --> GOLD["GOLD<br/>business-ready datasets"]
+  GOLD --> CONSUMERS["Analytics / BI<br/>Data Agents · Phase 3+"]
+  classDef source fill:#eef2f7,stroke:#64748b,color:#1e293b
+  classDef bronze fill:#eaf2fb,stroke:#527fa8,color:#17324d
+  classDef silver fill:#eaf5ef,stroke:#47845e,color:#183c27
+  classDef gold fill:#f2edfa,stroke:#8b78b6,color:#33234e
+  classDef future fill:#fff5e5,stroke:#bd8731,color:#4b3512
+  class SOURCE,LANDING source
+  class BRONZE bronze
+  class SILVER silver
+  class GOLD gold
+  class CONSUMERS future
 ```
-
 The Spark master and workers, JupyterLab, Ollama, and MinIO communicate over the private Docker network. Published host ports are bound to `127.0.0.1`, so the interfaces are intended for local access. The dashed MinIO connection is a **planned Phase 2 integration**, not an active Spark S3A data path in Phase 1.
 
 The Spark master and workers, JupyterLab, Ollama, and MinIO communicate over the private Docker network. Published host ports are bound to `127.0.0.1`, so the interfaces are intended for local access.

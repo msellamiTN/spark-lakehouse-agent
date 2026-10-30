@@ -190,7 +190,7 @@ Connects to http://minio:9000. list_buckets checks only configured allowlist ent
 2. **No public service listeners:** published Docker ports bind to 127.0.0.1.
 3. **Secret handling:** credentials and auth keys stay in local .env, excluded from Git. Never put them in notebooks, prompts, logs, or screenshots.
 4. **MinIO identity:** use a dedicated MCP service account, not root. Grant bucket-scoped List/Get and optional Put only under agent-outputs/*.
-5. **Spark S3A identity:** use a dedicated Spark service account scoped to the lakehouse bucket; inject it into Spark drivers and workers, never use MinIO root credentials. The current single shared Spark identity is a lab convenience, not per-user or per-domain isolation.
+5. **Spark S3A credentials:** the simple single-user lab profile reuses MinIO root credentials in Spark drivers and workers to avoid manual provisioning. This grants administrative access and is not suitable for untrusted multi-user or production workloads; use a bucket-scoped Spark identity for those environments.
 6. **Spark query safety:** preserve read-only validation and bounded result sizes.
 7. **Student isolation:** Tailscale ACLs do not isolate Spark sessions, objects, or tool permissions. Per-team identities/buckets and Spark authorization are required before sensitive multi-tenant use.
 8. **Persistence safety:** docker compose down -v deletes named volumes, including MinIO data and Tailscale identity.

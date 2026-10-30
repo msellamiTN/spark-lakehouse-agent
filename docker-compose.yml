@@ -106,7 +106,7 @@ services:
     build:
       context: ./infrastructure/jupyter
       args:
-        SPARK_IMAGE: ${SPARK_IMAGE}
+        SPARK_IMAGE: ${SPARK_IMAGE:-spark-lakehouse-s3a:3.5.6}
     image: ${JUPYTER_IMAGE}
     container_name: lakehouse-jupyter
     hostname: jupyter
@@ -194,7 +194,7 @@ services:
     build:
       context: ./infrastructure/mcp
       args:
-        SPARK_IMAGE: ${SPARK_IMAGE}
+        SPARK_IMAGE: ${SPARK_IMAGE:-spark-lakehouse-s3a:3.5.6}
     image: ${MCP_IMAGE:-spark-lakehouse-mcp:3.5.6}
     container_name: lakehouse-spark-mcp
     hostname: spark-mcp
@@ -236,7 +236,7 @@ services:
     build:
       context: ./infrastructure/mcp
       args:
-        SPARK_IMAGE: ${SPARK_IMAGE}
+        SPARK_IMAGE: ${SPARK_IMAGE:-spark-lakehouse-s3a:3.5.6}
     image: ${MCP_IMAGE:-spark-lakehouse-mcp:3.5.6}
     container_name: lakehouse-minio-mcp
     hostname: minio-mcp

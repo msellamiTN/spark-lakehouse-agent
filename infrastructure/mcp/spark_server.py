@@ -18,6 +18,9 @@ mcp = FastMCP(
         "inspect schemas, and run bounded SELECT queries. Do not assume MinIO is "
         "integrated with Spark: S3A is a later-phase capability."
     ),
+    host=os.getenv("MCP_HOST", "0.0.0.0"),
+    port=int(os.getenv("MCP_PORT", "8000")),
+    stateless_http=True,
 )
 
 MASTER = os.getenv("SPARK_MASTER", "spark://spark-master:7077")
@@ -135,9 +138,4 @@ def run_readonly_query(sql: str, max_rows: int = DEFAULT_MAX_ROWS) -> str:
 
 
 if __name__ == "__main__":
-    mcp.run(
-        transport="streamable-http",
-        host=os.getenv("MCP_HOST", "0.0.0.0"),
-        port=int(os.getenv("MCP_PORT", "8000")),
-        stateless_http=True,
-    )
+    mcp.run(transport="streamable-http")

@@ -363,6 +363,8 @@ docker compose up -d
 - [Remote access from Windows and Google Colab](docs/mcp/COLAB-ACCESS.md)
 - [MCP tool contracts and safety controls](docs/mcp/README.md)
 - [Phase 1 technical notes](docs/PHASE-1.md)
+- [Platform architecture — deployment, data flow, security boundaries and decisions](docs/ARCHITECTURE.md)
+- [Operations troubleshooting and field notes](docs/TROUBLESHOOTING.md)
 - [Architecture diagrams](docs/diagrams/README.md)
 
 ---

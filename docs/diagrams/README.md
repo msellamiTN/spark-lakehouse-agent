@@ -6,12 +6,20 @@
 - [Operations troubleshooting and field notes](../TROUBLESHOOTING.md)
 - [Default Docker Compose + Tailscale deployment](../mcp/DOCKER-TAILSCALE-STUDENT-LAB.md)
 
+## Primary architecture drawing
+
+The canonical architecture is a hand-authored, high-resolution SVG with grouped trust boundaries, ingress routing, runtime services, MCP capabilities, persistence domains, and explicit Phase 1 / Phase 2 scope.
+
+![Phase 1 deployment architecture](phase-1-architecture.svg)
+
+[Open SVG at full resolution](phase-1-architecture.svg)
+
 ## Diagram catalogue
 
 | Asset | Format | Purpose | Status |
 |---|---|---|---|
-| [Phase 1 deployment architecture](phase-1-architecture.svg) | SVG | Deployment topology and persistence boundaries | Current Phase 1 baseline |
-| Architecture views | Mermaid | Deployment, data lifecycle and operational lifecycle | Maintained in [ARCHITECTURE.md](../ARCHITECTURE.md) |
+| [Phase 1 deployment architecture](phase-1-architecture.svg) | SVG | Detailed deployment topology, private ingress, MCP routing, services and persistence | Primary visual architecture |
+| Supporting flow views | Mermaid | Selected data lifecycle and operational sequences | Supplementary; maintained in [ARCHITECTURE.md](../ARCHITECTURE.md) |
 
 ## Source-of-truth rules
 

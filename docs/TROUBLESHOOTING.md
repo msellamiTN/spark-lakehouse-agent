@@ -217,11 +217,12 @@ Confirm SPARK_MASTER=spark://spark-master:7077, master health, and worker regist
 Rebuild the custom Spark runtime and dependent Jupyter/MCP images after updating the repository:
 
 ~~~bash
-docker compose config --quiet
-docker compose up -d --build
+./scripts/up.sh
 docker compose ps
 ./scripts/validate.sh
 ~~~
+
+The startup script builds the Spark/S3A base before the Jupyter and MCP images that inherit it.
 
 The S3A acceptance test is `notebooks/validate_minio_s3a.py`. It writes a temporary Parquet dataset under `lakehouse/_system/validation/`, reads it back through Spark executors, verifies the rows and removes only that unique test prefix.
 

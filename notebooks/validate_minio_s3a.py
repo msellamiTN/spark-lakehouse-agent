@@ -3,6 +3,8 @@
 
 import os
 import sys
+import time
+from urllib.request import urlopen
 from uuid import uuid4
 
 from pyspark.sql import SparkSession
@@ -14,12 +16,28 @@ MASTER = os.getenv("SPARK_MASTER", "spark://spark-master:7077")
 EXPECTED_HADOOP_VERSION = "3.3.4"
 
 
+def wait_for_minio() -> None:
+    health_url = "http://minio:9000/minio/health/ready"
+    last_error = None
+    for _ in range(30):
+        try:
+            with urlopen(health_url, timeout=3) as response:
+                if response.status == 200:
+                    return
+        except Exception as exc:
+            last_error = exc
+        time.sleep(2)
+    raise RuntimeError(f"MinIO did not become ready at {health_url}: {type(last_error).__name__}")
+
+
 def main() -> int:
     if not os.getenv("AWS_ACCESS_KEY_ID") or not os.getenv("AWS_SECRET_ACCESS_KEY"):
         raise RuntimeError(
             "Spark S3A credentials are missing. Configure SPARK_S3A_ACCESS_KEY "
             "and SPARK_S3A_SECRET_KEY in .env; do not use MinIO root credentials."
         )
+
+    wait_for_minio()
 
     spark = (
         SparkSession.builder

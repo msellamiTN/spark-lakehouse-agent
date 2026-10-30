@@ -29,6 +29,12 @@ pass "Spark master web UI"
 docker compose exec -T spark-mcp python3 -m unittest discover -s /app/tests -v || fail "MCP guardrail unit tests"
 pass "MCP guardrail unit tests"
 
+docker compose exec -T spark-mcp python3 -c "from spark_server import _spark; s=_spark(); print('Spark MCP connected:', s.version, s.sparkContext.master); s.stop()" || fail "Spark MCP to Spark cluster connectivity"
+pass "Spark MCP to Spark cluster connectivity"
+
+docker compose exec -T minio-mcp python3 -c "import urllib.request; r=urllib.request.urlopen('http://minio:9000/minio/health/live', timeout=5); print('MinIO MCP upstream:', r.status)" || fail "MinIO MCP to MinIO connectivity"
+pass "MinIO MCP to MinIO connectivity"
+
 docker compose exec -T jupyter python3 - <<'PY'
 from pyspark.sql import SparkSession
 spark = (SparkSession.builder

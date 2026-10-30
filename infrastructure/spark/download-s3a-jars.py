@@ -16,6 +16,10 @@ artifacts = [
         f"https://repo.maven.apache.org/maven2/com/amazonaws/aws-java-sdk-bundle/{aws_version}/aws-java-sdk-bundle-{aws_version}.jar",
         Path(f"/opt/spark/jars/aws-java-sdk-bundle-{aws_version}.jar"),
     ),
+    (
+        "https://repo.maven.apache.org/maven2/org/wildfly/openssl/wildfly-openssl/1.0.7/wildfly-openssl-1.0.7.jar",
+        Path("/opt/spark/jars/wildfly-openssl-1.0.7.jar"),
+    ),
 ]
 
 for url, destination in artifacts:

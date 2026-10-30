@@ -47,8 +47,12 @@ The `lakehouse` bucket contains logical `raw/`, `bronze/`, `silver/` and `gold/`
 - JupyterLab connects to spark://spark-master:7077.
 - Spark workers and Jupyter share the host-mounted /lakehouse directory.
 - Ollama is deployed; agent/application integration is not implemented in Phase 1.
-- MinIO is persistent and is the canonical storage layer in the logical Lakehouse target. Direct Spark S3A access remains unconfigured in the current Compose runtime until the integration work and end-to-end validation are complete.
+- MinIO is persistent and is the canonical Lakehouse storage layer. Compose now configures Spark S3A access; each host must rebuild the custom Spark image and pass the distributed Parquet write/read validation before the integration is marked operational.
 - Published service ports bind to loopback; remote MCP access uses Tailscale Serve.
+
+## Storage integration documentation
+
+- [Spark S3A ↔ MinIO runbook](../storage/MINIO-SPARK-S3A.md)
 
 ## Change checklist
 

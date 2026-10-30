@@ -12,18 +12,18 @@ if [[ ! -f .env ]]; then
   read -r -p "Press Enter after editing .env to continue, or Ctrl+C to stop."
 fi
 
-set -a
-. ./.env
-set +a
-[[ "${TS_AUTHKEY:-}" != "tskey-auth-REPLACE_WITH_YOUR_TAGGED_KEY" && -n "${TS_AUTHKEY:-}" ]] || {
+TS_AUTHKEY_VALUE="$(sed -n 's/^TS_AUTHKEY=//p' .env | tail -n 1)"
+JUPYTER_TOKEN_VALUE="$(sed -n 's/^JUPYTER_TOKEN=//p' .env | tail -n 1)"
+MINIO_PASSWORD_VALUE="$(sed -n 's/^MINIO_ROOT_PASSWORD=//p' .env | tail -n 1)"
+[[ "$TS_AUTHKEY_VALUE" != "tskey-auth-REPLACE_WITH_YOUR_TAGGED_KEY" && -n "$TS_AUTHKEY_VALUE" ]] || {
   echo "ERROR: Set TS_AUTHKEY in .env to a reusable auth key tagged tag:spark-lakehouse-mcp."
   exit 1
 }
-[[ "${JUPYTER_TOKEN:-}" != "replace-with-a-long-random-token" && -n "${JUPYTER_TOKEN:-}" ]] || {
+[[ "$JUPYTER_TOKEN_VALUE" != "replace-with-a-long-random-token" && -n "$JUPYTER_TOKEN_VALUE" ]] || {
   echo "ERROR: Replace the sample JUPYTER_TOKEN in .env."
   exit 1
 }
-[[ "${MINIO_ROOT_PASSWORD:-}" != "replace-with-a-strong-unique-password" && -n "${MINIO_ROOT_PASSWORD:-}" ]] || {
+[[ "$MINIO_PASSWORD_VALUE" != "replace-with-a-strong-unique-password" && -n "$MINIO_PASSWORD_VALUE" ]] || {
   echo "ERROR: Replace the sample MINIO_ROOT_PASSWORD in .env."
   exit 1
 }

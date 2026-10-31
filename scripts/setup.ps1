@@ -24,7 +24,9 @@ if (-not $settings["JUPYTER_TOKEN"] -or $settings["JUPYTER_TOKEN"] -like "replac
 if (-not $settings["MINIO_ROOT_PASSWORD"] -or $settings["MINIO_ROOT_PASSWORD"] -like "replace-*") {
     throw "Replace the sample MINIO_ROOT_PASSWORD in .env."
 }
-@("notebooks", "retail", "lakehouse/raw", "lakehouse/bronze", "lakehouse/silver", "lakehouse/gold", "lakehouse/checkpoints") |
+@("notebooks", "retail", "lakehouse/raw", "lakehouse/bronze", "lakehouse/silver", "lakehouse/gold", "lakehouse/checkpoints", "secrets") |
     ForEach-Object { New-Item -ItemType Directory -Force $_ | Out-Null }
+New-Item -ItemType File -Force "secrets/spark-s3a.env" | Out-Null
+New-Item -ItemType File -Force "secrets/minio-mcp.env" | Out-Null
 docker compose config --quiet
 Write-Host "Setup checks passed. Run .\scripts\up.ps1 to start the complete stack."

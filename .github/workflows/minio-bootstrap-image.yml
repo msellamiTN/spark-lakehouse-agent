@@ -33,7 +33,10 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Prepare non-secret Compose environment
-        run: cp .env.example .env
+        run: |
+          cp .env.example .env
+          mkdir -p secrets
+          touch secrets/spark-s3a.env secrets/minio-mcp.env
 
       - name: Validate Compose configuration
         run: docker compose config --quiet

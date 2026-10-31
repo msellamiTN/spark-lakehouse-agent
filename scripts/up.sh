@@ -13,7 +13,17 @@ hadoop_version_value="$(sed -n 's/^HADOOP_VERSION=//p' .env | tail -n 1)"
 aws_sdk_version_value="$(sed -n 's/^AWS_SDK_BUNDLE_VERSION=//p' .env | tail -n 1)"
 [[ -z "$hadoop_version_value" || "$hadoop_version_value" == "3.3.4" ]] || { echo "ERROR: HADOOP_VERSION must remain 3.3.4 for this Spark base image."; exit 1; }
 [[ -z "$aws_sdk_version_value" || "$aws_sdk_version_value" == "1.12.262" ]] || { echo "ERROR: AWS_SDK_BUNDLE_VERSION must remain 1.12.262 for hadoop-aws 3.3.4."; exit 1; }
+# env_file paths must exist before Compose validates the full project.
+mkdir -p secrets
+touch secrets/spark-s3a.env secrets/minio-mcp.env
+chmod 600 secrets/spark-s3a.env secrets/minio-mcp.env
 docker compose config --quiet
+
+# Start only the persistent object store, then provision bucket-scoped identities.
+docker compose up -d minio
+bash ./scripts/bootstrap-minio.sh
+docker compose config --quiet
+
 # Build the shared Spark/S3A base first; Jupyter and MCP images inherit it.
 docker compose build spark-master
 docker compose build jupyter spark-mcp minio-mcp

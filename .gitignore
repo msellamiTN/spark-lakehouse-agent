@@ -10,3 +10,7 @@ lakehouse/gold/*
 !lakehouse/bronze/.gitkeep
 !lakehouse/silver/.gitkeep
 !lakehouse/gold/.gitkeep
+
+# Generated MinIO service-account secrets and temporary mc admin config.
+secrets/*
+!secrets/.gitkeep

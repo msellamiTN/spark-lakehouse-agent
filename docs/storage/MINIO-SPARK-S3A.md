@@ -27,7 +27,7 @@ MinIO root credentials remain in the root-only MinIO server configuration and ar
 
 The two application identities have separate inline IAM policies. Neither policy grants account-wide bucket enumeration or access to another bucket. MinIO MCP also retains its application-level bucket allowlist, object-key validation, byte limits and write-prefix checks. IAM is an additional enforcement layer, not a replacement for those controls.
 
-The bootstrap uses MinIO's service-account API through the pinned `mc` client. The policy attached to an access key can only restrict the permissions of its parent identity; it cannot grant permissions the parent does not have. See the MinIO Client references for [service-account creation](https://miniodocs.cc/reference/minio-mc-admin/mc-admin-user-svcacct-add) and [policy management](https://min.io/docs/minio/linux/reference/minio-mc-admin/mc-admin-policy.html).
+The bootstrap uses MinIO's service-account API through a dedicated one-shot Docker service. Its image is built locally from the pinned MinIO Client release `RELEASE.2025-08-13T08-35-41Z`; the Docker build verifies the binary against the pinned SHA-256 digest `01f866e9c5f9b87c2b09116fa5d7c06695b106242d829a8bb32990c00312e891`. The runtime image is minimal (`scratch`) and contains only the client executable and CA certificates. No host-level `mc` installation or external `minio/mc` image pull is required. The policy attached to an access key can only restrict the permissions of its parent identity; it cannot grant permissions the parent does not have. See the MinIO Client references for [service-account creation](https://miniodocs.cc/reference/minio-mc-admin/mc-admin-user-svcacct-add) and [policy management](https://min.io/docs/minio/linux/reference/minio-mc-admin/mc-admin-policy.html).
 
 ## 3. Bootstrap and local secret files
 
@@ -40,8 +40,9 @@ The normal deployment entry point is:
 It performs these steps in order:
 
 1. Creates empty, private env-file placeholders so Compose can validate the project.
-2. Starts only the persistent MinIO service.
-3. Runs `scripts/bootstrap-minio.sh` through the temporary `minio-init` client service.
+2. Builds the `minio-init` image; its build stage downloads the pinned Linux AMD64 client and verifies its SHA-256 digest.
+3. Starts only the persistent MinIO service.
+4. Runs `scripts/bootstrap-minio.sh` through the temporary `minio-init` client service.
 4. Waits for MinIO readiness and creates `lakehouse` only if it is absent.
 5. Creates the two application access keys if they do not already exist, attaching their least-privilege policies.
 6. Writes the generated credentials into local files and sets restrictive permissions.
@@ -116,6 +117,7 @@ Use Parquet as the baseline file format. Plain Parquet on S3A is not transaction
 | Symptom | Likely cause | Check |
 |---|---|---|
 | Compose reports missing env file | Bootstrap placeholders have not been created | Run `./scripts/up.sh`, not bare `docker compose up` on a fresh checkout |
+| MinIO Client image build fails | Outbound GitHub access, release asset or checksum mismatch | Inspect the `minio-init` build output; do not bypass the pinned SHA-256 verification |
 | `AccessDenied` from Spark | Spark identity/policy mismatch | Re-run `bash ./scripts/bootstrap-minio.sh`; inspect policy and key status without printing secrets |
 | `InvalidAccessKeyId` | Service account is absent, disabled or mismatched | Check `mc admin user svcacct info` using the admin bootstrap workflow |
 | `ClassNotFoundException` for S3A | S3A JAR missing | Rebuild the custom Spark image |

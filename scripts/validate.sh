@@ -51,9 +51,10 @@ pass "MinIO MCP has a dedicated identity and no root credentials"
 # IAM negative tests: the two identities can access lakehouse but cannot enumerate all buckets.
 docker compose exec -T jupyter python3 - <<'PY'
 import boto3
+from botocore.config import Config
 from botocore.exceptions import ClientError
 
-s3 = boto3.client("s3", endpoint_url="http://minio:9000", region_name="us-east-1")
+s3 = boto3.client("s3", endpoint_url="http://minio:9000", region_name="us-east-1", config=Config(signature_version="s3v4", s3={"addressing_style": "path"}))
 s3.head_bucket(Bucket="lakehouse")
 try:
     s3.list_buckets()
@@ -70,6 +71,7 @@ pass "Spark MinIO IAM boundary"
 docker compose exec -T minio-mcp python3 - <<'PY'
 import os
 import boto3
+from botocore.config import Config
 from botocore.exceptions import ClientError
 
 s3 = boto3.client(
@@ -78,6 +80,7 @@ s3 = boto3.client(
     aws_access_key_id=os.environ["MINIO_MCP_ACCESS_KEY"],
     aws_secret_access_key=os.environ["MINIO_MCP_SECRET_KEY"],
     region_name="us-east-1",
+    config=Config(signature_version="s3v4", s3={"addressing_style": "path"}),
 )
 s3.head_bucket(Bucket="lakehouse")
 try:

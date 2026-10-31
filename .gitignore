@@ -14,3 +14,6 @@ lakehouse/gold/*
 # Generated MinIO service-account secrets and temporary mc admin config.
 secrets/*
 !secrets/.gitkeep
+
+# Local tooling artifacts; the MinIO Client binary is fetched and verified in Docker build.
+.tools/

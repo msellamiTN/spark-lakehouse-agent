@@ -19,6 +19,9 @@ touch secrets/spark-s3a.env secrets/minio-mcp.env
 chmod 600 secrets/spark-s3a.env secrets/minio-mcp.env
 docker compose config --quiet
 
+# Build the pinned MinIO Client image locally; mc itself runs only in this container.
+docker compose build minio-init
+
 # Start only the persistent object store, then provision bucket-scoped identities.
 docker compose up -d minio
 bash ./scripts/bootstrap-minio.sh

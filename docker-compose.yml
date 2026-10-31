@@ -87,8 +87,6 @@ services:
       spark://spark-master:7077
     environment:
       SPARK_NO_DAEMONIZE: "true"
-      AWS_ACCESS_KEY_ID: ${MINIO_ROOT_USER:?Set MINIO_ROOT_USER in .env}
-      AWS_SECRET_ACCESS_KEY: ${MINIO_ROOT_PASSWORD:?Set MINIO_ROOT_PASSWORD in .env}
     ports:
       - "127.0.0.1:${SPARK_WORKER_2_UI_PORT:-8082}:8082"
     volumes:

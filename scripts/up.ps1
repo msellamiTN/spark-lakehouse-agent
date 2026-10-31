@@ -24,6 +24,10 @@ foreach ($secretFile in @("secrets/spark-s3a.env", "secrets/minio-mcp.env")) {
 docker compose config --quiet
 if ($LASTEXITCODE -ne 0) { throw "Compose configuration is invalid" }
 
+# Build the pinned MinIO Client image locally; mc itself runs only in this container.
+docker compose build minio-init
+if ($LASTEXITCODE -ne 0) { throw "MinIO Client image build failed" }
+
 # Start MinIO alone, provision the bucket and scoped identities, then start workloads.
 docker compose up -d minio
 if ($LASTEXITCODE -ne 0) { throw "MinIO startup failed" }

@@ -54,10 +54,11 @@ echo "PASS: lakehouse bucket exists."
 
 ensure_account() {
   local file="$1" access_key="$2" policy_file="$3" label="$4" access_var="$5" secret_var="$6"
-  local existing_access output
+  local existing_access existing_secret output
   if [[ -s "$file" ]]; then
     existing_access="$(sed -n "s/^${access_var}=//p" "$file" | tail -n 1)"
-    [[ "$existing_access" == "$access_key" ]] || fail "$label credentials file has an unexpected access key; review it manually."
+    existing_secret="$(sed -n "s/^${secret_var}=//p" "$file" | tail -n 1)"
+    [[ "$existing_access" == "$access_key" && -n "$existing_secret" ]] || fail "$label credentials file is incomplete or has an unexpected access key; review it manually."
     mc_run admin user svcacct info local "$access_key" >/dev/null || fail "$label service account is absent or disabled; use the documented rotation procedure."
     mc_run admin user svcacct edit --policy "/policies/$policy_file" local "$access_key" >/dev/null
     echo "PASS: existing $label service account retained; policy reconciled."
@@ -72,7 +73,7 @@ ensure_account() {
   mapfile -t credentials < <(
     printf '%s' "$output" | python3 -c 'import json,sys; d=json.load(sys.stdin); assert d.get("status") == "success"; print(d["accessKey"]); print(d["secretKey"])'
   )
-  [[ "${#credentials[@]}" -eq 2 && -n "${credentials[0]}" && -n "${credentials[1]}" ]] || fail "MinIO did not return the expected $label credential response."
+  [[ "${#credentials[@]}" -eq 2 && "${credentials[0]}" == "$access_key" && -n "${credentials[1]}" ]] || fail "MinIO did not return the expected $label credential response."
   local tmp="${file}.tmp"
   (umask 077; printf "%s=%s\n%s=%s\n" "$access_var" "${credentials[0]}" "$secret_var" "${credentials[1]}" > "$tmp")
   chmod 600 "$tmp"

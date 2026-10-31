@@ -38,6 +38,8 @@ services:
     image: ${SPARK_IMAGE:-spark-lakehouse-s3a:3.5.6}
     container_name: lakehouse-spark-worker-1
     hostname: spark-worker-1
+    env_file:
+      - ./secrets/spark-s3a.env
     command: >
       /opt/spark/bin/spark-class
       org.apache.spark.deploy.worker.Worker
@@ -49,8 +51,6 @@ services:
       spark://spark-master:7077
     environment:
       SPARK_NO_DAEMONIZE: "true"
-      AWS_ACCESS_KEY_ID: ${MINIO_ROOT_USER:?Set MINIO_ROOT_USER in .env}
-      AWS_SECRET_ACCESS_KEY: ${MINIO_ROOT_PASSWORD:?Set MINIO_ROOT_PASSWORD in .env}
     ports:
       - "127.0.0.1:${SPARK_WORKER_1_UI_PORT:-8081}:8081"
     volumes:
@@ -74,6 +74,8 @@ services:
     image: ${SPARK_IMAGE:-spark-lakehouse-s3a:3.5.6}
     container_name: lakehouse-spark-worker-2
     hostname: spark-worker-2
+    env_file:
+      - ./secrets/spark-s3a.env
     command: >
       /opt/spark/bin/spark-class
       org.apache.spark.deploy.worker.Worker
@@ -114,6 +116,8 @@ services:
     image: ${JUPYTER_IMAGE}
     container_name: lakehouse-jupyter
     hostname: jupyter
+    env_file:
+      - ./secrets/spark-s3a.env
     environment:
       JUPYTER_TOKEN: ${JUPYTER_TOKEN}
       SPARK_MASTER: spark://spark-master:7077
@@ -121,8 +125,6 @@ services:
       PYSPARK_PYTHON: python3
       PYSPARK_DRIVER_PYTHON: python3
       LAKEHOUSE_HOME: /lakehouse
-      AWS_ACCESS_KEY_ID: ${MINIO_ROOT_USER:?Set MINIO_ROOT_USER in .env}
-      AWS_SECRET_ACCESS_KEY: ${MINIO_ROOT_PASSWORD:?Set MINIO_ROOT_PASSWORD in .env}
       PYTHONPATH: /workspace:/opt/spark/python/lib/pyspark.zip:/opt/spark/python/lib/py4j-0.10.9.7-src.zip
     ports:
       - "127.0.0.1:${JUPYTER_PORT:-8888}:8888"
@@ -194,7 +196,19 @@ services:
     networks: [lakehouse]
     restart: unless-stopped
 
+  # One-shot MinIO administration client. Invoked only by scripts/bootstrap-minio.sh.
+  minio-init:
+    image: ${MINIO_MC_IMAGE:-minio/mc:RELEASE.2025-08-13T08-35-41Z}
+    profiles: ["bootstrap"]
+    volumes:
+      - ./secrets:/secrets
+      - ./infrastructure/minio/policies:/policies:ro
+    networks: [lakehouse]
+    restart: "no"
+
   spark-mcp:
+    env_file:
+      - ./secrets/spark-s3a.env
     build:
       context: ./infrastructure/mcp
       args:
@@ -211,8 +225,6 @@ services:
       PYSPARK_PYTHON: python3
       SPARK_MCP_MAX_ROWS: ${SPARK_MCP_MAX_ROWS:-100}
       SPARK_MCP_HARD_MAX_ROWS: ${SPARK_MCP_HARD_MAX_ROWS:-500}
-      AWS_ACCESS_KEY_ID: ${MINIO_ROOT_USER:?Set MINIO_ROOT_USER in .env}
-      AWS_SECRET_ACCESS_KEY: ${MINIO_ROOT_PASSWORD:?Set MINIO_ROOT_PASSWORD in .env}
     ports:
       - "127.0.0.1:${SPARK_MCP_PORT:-8002}:8000"
     volumes:
@@ -237,6 +249,8 @@ services:
     restart: unless-stopped
 
   minio-mcp:
+    env_file:
+      - ./secrets/minio-mcp.env
     build:
       context: ./infrastructure/mcp
       args:
@@ -249,10 +263,6 @@ services:
       MCP_HOST: 0.0.0.0
       MCP_PORT: "8001"
       MINIO_ENDPOINT: http://minio:9000
-      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
-      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
-      MINIO_MCP_ACCESS_KEY: ${MINIO_MCP_ACCESS_KEY:-}
-      MINIO_MCP_SECRET_KEY: ${MINIO_MCP_SECRET_KEY:-}
       MINIO_MCP_ALLOWED_BUCKETS: ${MINIO_MCP_ALLOWED_BUCKETS:-lakehouse}
       MINIO_MCP_ALLOW_WRITES: ${MINIO_MCP_ALLOW_WRITES:-false}
       MINIO_MCP_WRITE_PREFIXES: ${MINIO_MCP_WRITE_PREFIXES:-agent-outputs/}

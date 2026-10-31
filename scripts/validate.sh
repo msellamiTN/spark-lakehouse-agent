@@ -41,11 +41,11 @@ pass "MinIO MCP to MinIO connectivity"
 
 # Confirm application containers receive only their dedicated service identities.
 for svc in spark-worker-1 spark-worker-2 jupyter spark-mcp; do
-  docker compose exec -T "$svc" sh -lc 'test -n "${AWS_ACCESS_KEY_ID:-}" && test -n "${AWS_SECRET_ACCESS_KEY:-}" && test -z "${MINIO_ROOT_USER:-}" && test -z "${MINIO_ROOT_PASSWORD:-}"' || fail "$svc is missing scoped S3A credentials or has root credentials"
+  docker compose exec -T "$svc" sh -c 'test -n "${AWS_ACCESS_KEY_ID:-}" && test -n "${AWS_SECRET_ACCESS_KEY:-}" && test -z "${MINIO_ROOT_USER:-}" && test -z "${MINIO_ROOT_PASSWORD:-}"' || fail "$svc is missing scoped S3A credentials or has root credentials"
 done
 pass "Spark workers, Jupyter and Spark MCP use non-root S3A credentials"
 
-docker compose exec -T minio-mcp sh -lc 'test -n "${MINIO_MCP_ACCESS_KEY:-}" && test -n "${MINIO_MCP_SECRET_KEY:-}" && test -z "${MINIO_ROOT_USER:-}" && test -z "${MINIO_ROOT_PASSWORD:-}"' || fail "MinIO MCP is missing its dedicated identity or has root credentials"
+docker compose exec -T minio-mcp sh -c 'test -n "${MINIO_MCP_ACCESS_KEY:-}" && test -n "${MINIO_MCP_SECRET_KEY:-}" && test -z "${MINIO_ROOT_USER:-}" && test -z "${MINIO_ROOT_PASSWORD:-}"' || fail "MinIO MCP is missing its dedicated identity or has root credentials"
 pass "MinIO MCP has a dedicated identity and no root credentials"
 
 # IAM negative tests: the two identities can access lakehouse but cannot enumerate all buckets.

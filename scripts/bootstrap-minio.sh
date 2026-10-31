@@ -11,7 +11,7 @@ docker compose version >/dev/null 2>&1 || fail "Docker Compose v2 is required."
 
 env_value() {
   local key="$1"
-  sed -n "s/^\${key}=//p" .env | tail -n 1
+  sed -n "s/^${key}=//p" .env | tail -n 1
 }
 
 root_user="$(env_value MINIO_ROOT_USER)"

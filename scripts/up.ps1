@@ -17,8 +17,9 @@ if ($awsSdkLine -and $awsSdkLine -notmatch "AWS_SDK_BUNDLE_VERSION=1\.12\.262") 
 }
 # Create Compose env_file placeholders before the first project-wide validation.
 New-Item -ItemType Directory -Force "secrets" | Out-Null
-New-Item -ItemType File -Force "secrets/spark-s3a.env" | Out-Null
-New-Item -ItemType File -Force "secrets/minio-mcp.env" | Out-Null
+foreach ($secretFile in @("secrets/spark-s3a.env", "secrets/minio-mcp.env")) {
+    if (-not (Test-Path $secretFile)) { New-Item -ItemType File $secretFile | Out-Null }
+}
 
 docker compose config --quiet
 if ($LASTEXITCODE -ne 0) { throw "Compose configuration is invalid" }

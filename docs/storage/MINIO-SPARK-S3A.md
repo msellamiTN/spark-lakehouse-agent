@@ -43,10 +43,10 @@ It performs these steps in order:
 2. Builds the `minio-init` image; its build stage downloads the pinned Linux AMD64 client and verifies its SHA-256 digest.
 3. Starts only the persistent MinIO service.
 4. Runs `scripts/bootstrap-minio.sh` through the temporary `minio-init` client service.
-4. Waits for MinIO readiness and creates `lakehouse` only if it is absent.
-5. Creates the two application access keys if they do not already exist, attaching their least-privilege policies.
-6. Writes the generated credentials into local files and sets restrictive permissions.
-7. Builds the Spark/S3A, Jupyter and MCP images, then starts the complete stack.
+5. Waits for MinIO readiness and creates `lakehouse` only if it is absent.
+6. Creates the two application access keys if they do not already exist, attaching their least-privilege policies.
+7. Writes the generated credentials into local files and sets restrictive permissions.
+8. Builds the Spark/S3A, Jupyter and MCP images, then starts the complete stack.
 
 Generated files:
 

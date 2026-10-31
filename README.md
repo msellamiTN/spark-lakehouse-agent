@@ -18,7 +18,7 @@ A containerized Spark Lakehouse and MCP platform for Data Engineering and Agenti
 | Tailscale | Containerized userspace networking | Private tailnet |
 | Tailscale Serve | HTTPS 443, configured from JSON | Tailnet only; Funnel disabled |
 
-MinIO is the canonical object-storage layer for the Lakehouse (Raw → Bronze → Silver → Gold). The Compose configuration now builds a Spark image with the Hadoop S3A connector and configures Spark drivers/workers to access the MinIO `lakehouse` bucket. Compose reuses the existing MinIO root credentials for Spark S3A in this simple single-user lab profile; no extra Spark credentials or setup command are required. Create the `lakehouse` bucket once in the MinIO Console, rebuild the images and run `./scripts/validate.sh` to verify distributed Parquet write/read. The local `./lakehouse` mount is retained only for transitional scratch/import workflows. Retail ingestion, CrewAI orchestration, and Streamlit dashboards remain later phases.
+MinIO is the canonical object-storage layer for the Lakehouse (Raw → Bronze → Silver → Gold). The Compose deployment builds a Spark image with the Hadoop S3A connector and uses `scripts/bootstrap-minio.sh` to create the `lakehouse` bucket plus separate bucket-scoped identities for Spark and MinIO MCP. Root credentials remain reserved for MinIO administration and bootstrap; application containers receive only their own restricted credentials from ignored local files under `secrets/`. Use `./scripts/up.sh` to bootstrap and start the platform, then `./scripts/validate.sh` to verify distributed Parquet write/read and IAM boundaries. The local `./lakehouse` mount is retained only for transitional scratch/import workflows. Retail ingestion, CrewAI orchestration, and Streamlit dashboards remain later phases.
 
 ## 2. Architecture
 
@@ -343,7 +343,7 @@ docker compose up -d
 - Funnel is disabled.
 - Do not expose Jupyter, Spark UI/RPC, MinIO API/console, Ollama, or Docker daemon to students.
 - Keep Spark MCP bounded and read-only; MinIO writes are disabled by default.
-- Spark uses a dedicated MinIO service account for S3A; do not reuse MinIO root credentials. The current shared Spark identity is not per-student isolation.
+- Spark and MinIO MCP use separate bucket-scoped MinIO service accounts; neither application receives root credentials. The Spark identity is shared by the platform and is not per-student isolation.
 - Tailscale ACLs control network reachability; they do not isolate individual student data, Spark sessions, MinIO buckets, or MCP tool permissions. Before sharing sensitive data or enabling writes, implement per-team buckets/service accounts and Spark-side authorization/session isolation.
 - This is a training/lab deployment, not a production-hardened multi-tenant platform.
 

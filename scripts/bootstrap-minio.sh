@@ -53,10 +53,10 @@ mc_run mb --ignore-existing local/lakehouse >/dev/null
 echo "PASS: lakehouse bucket exists."
 
 ensure_account() {
-  local file="$1" access_key="$2" policy_file="$3" label="$4"
+  local file="$1" access_key="$2" policy_file="$3" label="$4" access_var="$5" secret_var="$6"
   local existing_access output
   if [[ -s "$file" ]]; then
-    existing_access="$(sed -n 's/^AWS_ACCESS_KEY_ID=//p' "$file" | tail -n 1)"
+    existing_access="$(sed -n "s/^${access_var}=//p" "$file" | tail -n 1)"
     [[ "$existing_access" == "$access_key" ]] || fail "$label credentials file has an unexpected access key; review it manually."
     mc_run admin user svcacct info local "$access_key" >/dev/null || fail "$label service account is absent or disabled; use the documented rotation procedure."
     mc_run admin user svcacct edit --policy "/policies/$policy_file" local "$access_key" >/dev/null
@@ -80,8 +80,8 @@ ensure_account() {
   echo "PASS: created $label service account and stored its credentials."
 }
 
-ensure_account secrets/spark-s3a.env SPARKLAKEHOUSE01 spark-lakehouse.json Spark
-ensure_account secrets/minio-mcp.env MINIOMCPLAKEHOUSE1 "$mcp_policy" MinIO-MCP
+ensure_account secrets/spark-s3a.env SPARKLAKEHOUSE01 spark-lakehouse.json Spark AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY
+ensure_account secrets/minio-mcp.env MINIOMCPLAKEHOUSE1 "$mcp_policy" MinIO-MCP MINIO_MCP_ACCESS_KEY MINIO_MCP_SECRET_KEY
 chmod 600 secrets/spark-s3a.env secrets/minio-mcp.env
 
 echo "MinIO bootstrap completed. Credentials were not displayed."

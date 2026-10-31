@@ -24,7 +24,7 @@ for svc in spark-master spark-worker-1 spark-worker-2 jupyter ollama minio spark
   pass "$svc is running and healthy"
 done
 
-docker compose exec -T spark-master bash -lc "curl -fsS http://localhost:8080/ | grep -q 'Spark Master'" || fail "Spark master UI check"
+docker compose exec -T spark-master bash -c "curl -fsS http://localhost:8080/ | grep -q 'Spark Master'" || fail "Spark master UI check"
 pass "Spark master web UI"
 
 docker compose exec -T mcp-gateway wget -q -O /dev/null http://127.0.0.1:8080/healthz || fail "MCP gateway health"

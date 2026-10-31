@@ -45,7 +45,8 @@ function Ensure-MinIOAccessKey {
     if (Test-Path $File -PathType Leaf) {
         $lines = Get-Content $File
         $existing = ($lines | Where-Object { $_ -like "$AccessVariable=*" } | Select-Object -First 1) -replace "^$AccessVariable=", ""
-        if ($existing -ne $AccessKey) { throw "$Label credential file contains an unexpected access key." }
+        $existingSecret = ($lines | Where-Object { $_ -like "$SecretVariable=*" } | Select-Object -First 1) -replace "^$SecretVariable=", ""
+        if ($existing -ne $AccessKey -or -not $existingSecret) { throw "$Label credential file is incomplete or contains an unexpected access key." }
         $null = Invoke-Mc admin user svcacct info local $AccessKey
         $null = Invoke-Mc admin user svcacct edit --policy "/policies/$PolicyFile" local $AccessKey
         Write-Host "PASS: existing $Label identity retained; policy reconciled."
@@ -61,7 +62,7 @@ function Ensure-MinIOAccessKey {
 
     $output = Invoke-Mc --json admin user svcacct add --access-key $AccessKey --policy "/policies/$PolicyFile" local $rootUser
     $result = ($output -join "`n") | ConvertFrom-Json
-    if ($result.status -ne "success" -or -not $result.secretKey) { throw "MinIO did not return the expected $Label credentials." }
+    if ($result.status -ne "success" -or $result.accessKey -ne $AccessKey -or -not $result.secretKey) { throw "MinIO did not return the expected $Label credentials." }
     $text = "$AccessVariable=$($result.accessKey)`n$SecretVariable=$($result.secretKey)`n"
     Set-Content -Path $File -Value $text -Encoding ascii -NoNewline
     Write-Host "PASS: created $Label identity; credentials saved locally."

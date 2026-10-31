@@ -74,7 +74,7 @@ ensure_account() {
   )
   [[ "${#credentials[@]}" -eq 2 && -n "${credentials[0]}" && -n "${credentials[1]}" ]] || fail "MinIO did not return the expected $label credential response."
   local tmp="${file}.tmp"
-  (umask 077; printf 'AWS_ACCESS_KEY_ID=%s\nAWS_SECRET_ACCESS_KEY=%s\n' "${credentials[0]}" "${credentials[1]}" > "$tmp")
+  (umask 077; printf "%s=%s\n%s=%s\n" "$access_var" "${credentials[0]}" "$secret_var" "${credentials[1]}" > "$tmp")
   chmod 600 "$tmp"
   mv "$tmp" "$file"
   echo "PASS: created $label service account and stored its credentials."

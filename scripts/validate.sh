@@ -39,6 +39,69 @@ pass "Spark MCP to Spark cluster connectivity"
 docker compose exec -T minio-mcp python3 -c "import urllib.request; r=urllib.request.urlopen('http://minio:9000/minio/health/live', timeout=5); print('MinIO MCP upstream:', r.status)" || fail "MinIO MCP to MinIO connectivity"
 pass "MinIO MCP to MinIO connectivity"
 
+# Confirm application containers receive only their dedicated service identities.
+for svc in spark-worker-1 spark-worker-2 jupyter spark-mcp; do
+  docker compose exec -T "$svc" sh -lc 'test -n "${AWS_ACCESS_KEY_ID:-}" && test -n "${AWS_SECRET_ACCESS_KEY:-}" && test -z "${MINIO_ROOT_USER:-}" && test -z "${MINIO_ROOT_PASSWORD:-}"' || fail "$svc is missing scoped S3A credentials or has root credentials"
+done
+pass "Spark workers, Jupyter and Spark MCP use non-root S3A credentials"
+
+docker compose exec -T minio-mcp sh -lc 'test -n "${MINIO_MCP_ACCESS_KEY:-}" && test -n "${MINIO_MCP_SECRET_KEY:-}" && test -z "${MINIO_ROOT_USER:-}" && test -z "${MINIO_ROOT_PASSWORD:-}"' || fail "MinIO MCP is missing its dedicated identity or has root credentials"
+pass "MinIO MCP has a dedicated identity and no root credentials"
+
+# IAM negative tests: the two identities can access lakehouse but cannot enumerate all buckets.
+docker compose exec -T jupyter python3 - <<'PY'
+import boto3
+from botocore.exceptions import ClientError
+
+s3 = boto3.client("s3", endpoint_url="http://minio:9000", region_name="us-east-1")
+s3.head_bucket(Bucket="lakehouse")
+try:
+    s3.list_buckets()
+except ClientError as exc:
+    code = exc.response.get("Error", {}).get("Code", "")
+    if code not in {"AccessDenied", "AccessDeniedException", "403"}:
+        raise
+else:
+    raise AssertionError("Spark service account unexpectedly has account-wide bucket enumeration.")
+print("PASS: Spark identity can access lakehouse but cannot enumerate account buckets.")
+PY
+pass "Spark MinIO IAM boundary"
+
+docker compose exec -T minio-mcp python3 - <<'PY'
+import os
+import boto3
+from botocore.exceptions import ClientError
+
+s3 = boto3.client(
+    "s3",
+    endpoint_url=os.getenv("MINIO_ENDPOINT", "http://minio:9000"),
+    aws_access_key_id=os.environ["MINIO_MCP_ACCESS_KEY"],
+    aws_secret_access_key=os.environ["MINIO_MCP_SECRET_KEY"],
+    region_name="us-east-1",
+)
+s3.head_bucket(Bucket="lakehouse")
+try:
+    s3.list_buckets()
+except ClientError as exc:
+    code = exc.response.get("Error", {}).get("Code", "")
+    if code not in {"AccessDenied", "AccessDeniedException", "403"}:
+        raise
+else:
+    raise AssertionError("MinIO MCP identity unexpectedly has account-wide bucket enumeration.")
+
+if os.getenv("MINIO_MCP_ALLOW_WRITES", "false").lower() != "true":
+    try:
+        s3.put_object(Bucket="lakehouse", Key="agent-outputs/_iam-validation-probe", Body=b"probe")
+    except ClientError as exc:
+        code = exc.response.get("Error", {}).get("Code", "")
+        if code not in {"AccessDenied", "AccessDeniedException", "403"}:
+            raise
+    else:
+        raise AssertionError("Read-only MinIO MCP identity unexpectedly wrote an object.")
+print("PASS: MinIO MCP identity is bucket-scoped; read-only write denial verified when writes are disabled.")
+PY
+pass "MinIO MCP IAM boundary"
+
 docker compose exec -T jupyter python3 - <<'PY'
 from pyspark.sql import SparkSession
 spark = (SparkSession.builder

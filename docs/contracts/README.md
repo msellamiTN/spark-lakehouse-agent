@@ -14,7 +14,7 @@ python3 scripts/validate_lakehouse_contracts.py
 python3 -m unittest discover -s tests -v
 ~~~
 
-The validator uses only the Python standard library. It performs semantic checks for the repository's supported contract subset; the JSON Schema remains the normative interoperable schema for external tooling.
+The local semantic validator uses only the Python standard library. GitHub Actions additionally installs jsonschema, checks the Draft 2020-12 schema itself, and validates every dataset contract against it.
 
 ## Contract rules
 

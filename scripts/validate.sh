@@ -65,6 +65,7 @@ iam_probe_bucket="iam-boundary-probe-$(date +%s)-$$"
 iam_probe_config="$(mktemp -d "$PWD/secrets/.mc-iam-probe.XXXXXX")"
 chmod 700 "$iam_probe_config"
 iam_probe_created=0
+iam_probe_object_key="agent-outputs/_iam-validation-probe-$(date +%s%N)"
 
 mc_probe() {
   docker compose run --rm -T --no-deps minio-init \
@@ -72,11 +73,14 @@ mc_probe() {
 }
 
 cleanup_iam_probe() {
+  if [[ "$(env_value MINIO_MCP_ALLOW_WRITES)" == "true" ]]; then
+    mc_probe rm --force "local/lakehouse/$iam_probe_object_key" >/dev/null 2>&1 || true
+  fi
   if [[ "$iam_probe_created" == "1" ]]; then
     mc_probe rb --force "local/$iam_probe_bucket" >/dev/null 2>&1 \
       || echo "WARNING: could not remove temporary IAM probe bucket $iam_probe_bucket." >&2
   fi
-  if [[ -n "\${iam_probe_config:-}" && -d "$iam_probe_config" ]]; then
+  if [[ -n "${iam_probe_config:-}" && -d "$iam_probe_config" ]]; then
     rm -rf -- "$iam_probe_config"
   fi
   unset root_user root_password
@@ -115,7 +119,7 @@ else:
 PY
 pass "Spark MinIO bucket isolation"
 
-docker compose exec -T minio-mcp python3 - "$iam_probe_bucket" <<'PY'
+docker compose exec -T minio-mcp python3 - "$iam_probe_bucket" "$iam_probe_object_key" <<'PY'
 import os
 import sys
 import boto3
@@ -141,8 +145,8 @@ except ClientError as exc:
 else:
     raise SystemExit("FAIL: MinIO MCP can directly access the unrelated bucket.")
 
-probe_key = "agent-outputs/_iam-validation-probe"
-outside_key = "_iam-validation-probe"
+probe_key = sys.argv[2]
+outside_key = "_iam-validation-probe-" + str(os.getpid())
 allow_writes = os.getenv("MINIO_MCP_ALLOW_WRITES", "false").lower() == "true"
 if allow_writes:
     s3.put_object(Bucket="lakehouse", Key=probe_key, Body=b"temporary IAM validation probe")
@@ -167,13 +171,6 @@ else:
         raise SystemExit("FAIL: read-only MinIO MCP identity unexpectedly wrote an object.")
 PY
 pass "MinIO MCP bucket isolation and write boundary"
-
-# Remove any object created by the optional MCP write-policy test using the
-# root-only bootstrap client. This cleanup never uses application credentials.
-if [[ "$(env_value MINIO_MCP_ALLOW_WRITES)" == "true" ]]; then
-  mc_probe rm --force "local/lakehouse/agent-outputs/_iam-validation-probe" >/dev/null 2>&1 \
-    || echo "WARNING: optional MCP write probe object may need manual cleanup." >&2
-fi
 
 docker compose exec -T jupyter python3 - <<'PY'
 from pyspark.sql import SparkSession

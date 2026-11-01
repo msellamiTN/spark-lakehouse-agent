@@ -83,7 +83,7 @@ flowchart TB
 | MCP application | Spark MCP, MinIO MCP | Translate tool calls into bounded backend operations | Independent tool and permission surfaces |
 | Compute | Spark master, two workers | Distributed Spark execution and S3A I/O to MinIO | Internal Spark RPC; Hadoop/S3A versions aligned |
 | Interactive engineering | JupyterLab | Notebook development and Spark client | Token protected; loopback only |
-| Object storage | MinIO | Canonical Lakehouse data lake (Raw/Bronze/Silver/Gold) | Persistent volume; Spark S3A; Compose-injected MinIO credentials |
+| Object storage | MinIO | Canonical Lakehouse data lake (Raw/Bronze/Silver/Gold) | Persistent volume; Spark S3A; dedicated bucket-scoped service identities |
 | Model runtime | Ollama | Local model serving | No assumption of Phase 1 agent integration |
 | Persistence | Bind mount and named volumes | Durable data and service state | Never delete volumes for routine troubleshooting |
 
@@ -240,3 +240,50 @@ docker compose exec tailscale tailscale serve status
 - [ ] Re-check loopback bindings, Tailscale Serve paths, and Funnel state.
 - [ ] Update [troubleshooting](TROUBLESHOOTING.md).
 - [ ] Validate Markdown/Mermaid rendering and relevant deployment tests.
+
+
+## 9. Phase 2.1 — contract-driven Lakehouse foundation
+
+Phase 2.1 adds the first governed data-plane specification without changing the deployed Phase 1 services or MinIO IAM policies. The canonical bucket remains `lakehouse`; the Medallion zones are object-key prefixes.
+
+The target processing path is:
+
+~~~mermaid
+flowchart LR
+  SRC["Source files / systems"] --> RAW["MinIO: raw/"]
+  RAW --> INGEST["Contract-driven ingestion<br/>Phase 2.2 — planned"]
+  INGEST --> BRONZE["MinIO: bronze/"]
+  BRONZE --> QUALITY["Schema and quality gates"]
+  QUALITY -->|valid| SILVER["MinIO: silver/"]
+  QUALITY -->|rejected| QUARANTINE["MinIO: quarantine/"]
+  SILVER --> TRANSFORM["Business transformations"]
+  TRANSFORM --> GOLD["MinIO: gold/"]
+  CONTRACT["Versioned JSON dataset contracts"] -. governs .-> INGEST
+  CONTRACT -. governs .-> QUALITY
+  SPARK["Spark 3.5.6 + S3A"] --- INGEST
+  SPARK --- QUALITY
+  SPARK --- TRANSFORM
+  AGENT["MCP client / agent"] --> MCP["MinIO MCP<br/>read-only by default"]
+  MCP -->|allowlisted reads| RAW
+  MCP -->|allowlisted reads| BRONZE
+  MCP -->|allowlisted reads| SILVER
+  MCP -->|allowlisted reads| GOLD
+  MCP -. optional, policy-scoped write .-> OUTPUTS["agent-outputs/"]
+~~~
+
+### Contract artifacts
+
+- JSON Schema Draft 2020-12: `contracts/schema/dataset-contract.schema.json`.
+- Reference retail transactions contract: `contracts/datasets/retail-transactions.json`.
+- Dependency-free semantic validator: `scripts/validate_lakehouse_contracts.py`.
+- Unit tests: `tests/test_lakehouse_contracts.py`.
+- Local runner: `bash scripts/validate-phase-2.1.sh`.
+- GitHub Actions workflow: `.github/workflows/lakehouse-contracts.yml`.
+
+The validator checks the repository's supported contract rules; it is not a full JSON Schema implementation. External JSON Schema tooling can consume the normative schema directly.
+
+### Operational boundary
+
+This is a logical data architecture and contract baseline. It does not claim that Phase 2.2 ingestion jobs, catalog services, transactional table formats, data lineage or automated data-quality execution are deployed. Plain Parquet does not provide ACID table transactions.
+
+The local `./lakehouse:/lakehouse` mount remains scratch/import space only. Durable Raw/Bronze/Silver/Gold objects belong in MinIO under `s3a://lakehouse/`. Spark retains its dedicated service account; MinIO MCP remains read-only by default and its optional write policy remains confined to `agent-outputs/`. This phase does not change Compose services, secrets, IAM policies or running containers.

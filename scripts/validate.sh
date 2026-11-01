@@ -66,6 +66,7 @@ iam_probe_config="$(mktemp -d "$PWD/secrets/.mc-iam-probe.XXXXXX")"
 chmod 700 "$iam_probe_config"
 iam_probe_created=0
 iam_probe_object_key="agent-outputs/_iam-validation-probe-$(date +%s%N)"
+iam_probe_outside_key="_iam-validation-probe-$(date +%s%N)"
 
 mc_probe() {
   docker compose run --rm -T --no-deps minio-init \
@@ -75,6 +76,7 @@ mc_probe() {
 cleanup_iam_probe() {
   if [[ "$(env_value MINIO_MCP_ALLOW_WRITES)" == "true" ]]; then
     mc_probe rm --force "local/lakehouse/$iam_probe_object_key" >/dev/null 2>&1 || true
+    mc_probe rm --force "local/lakehouse/$iam_probe_outside_key" >/dev/null 2>&1 || true
   fi
   if [[ "$iam_probe_created" == "1" ]]; then
     mc_probe rb --force "local/$iam_probe_bucket" >/dev/null 2>&1 \
@@ -119,7 +121,7 @@ else:
 PY
 pass "Spark MinIO bucket isolation"
 
-docker compose exec -T minio-mcp python3 - "$iam_probe_bucket" "$iam_probe_object_key" <<'PY'
+docker compose exec -T minio-mcp python3 - "$iam_probe_bucket" "$iam_probe_object_key" "$iam_probe_outside_key" <<'PY'
 import os
 import sys
 import boto3
@@ -146,7 +148,7 @@ else:
     raise SystemExit("FAIL: MinIO MCP can directly access the unrelated bucket.")
 
 probe_key = sys.argv[2]
-outside_key = "_iam-validation-probe-" + str(os.getpid())
+outside_key = sys.argv[3]
 allow_writes = os.getenv("MINIO_MCP_ALLOW_WRITES", "false").lower() == "true"
 if allow_writes:
     s3.put_object(Bucket="lakehouse", Key=probe_key, Body=b"temporary IAM validation probe")

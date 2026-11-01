@@ -51,14 +51,14 @@ def validate_contract(contract: dict[str, Any]) -> None:
     source = contract["source"]
     _require(isinstance(source, dict), "source must be an object")
     _require(source.get("zone") == "raw", "source.zone must be 'raw'")
-    _require(source.get("format") in {"csv", "json", "parquet"}, "source.format must be csv, json or parquet")
+    _require(isinstance(source.get("format"), str) and source["format"] in {"csv", "json", "parquet"}, "source.format must be csv, json or parquet")
     source_path = source.get("path_template")
     _require(isinstance(source_path, str) and source_path.startswith(f"s3a://lakehouse/raw/{domain}/{name}/"), "source path must be under matching raw/<domain>/<dataset>")
 
     target = contract["target"]
     _require(isinstance(target, dict), "target must be an object")
     zone = target.get("zone")
-    _require(zone in ZONES, "target.zone must be bronze, silver or gold")
+    _require(isinstance(zone, str) and zone in ZONES, "target.zone must be bronze, silver or gold")
     _require(target.get("format") == "parquet", "curated target format must be parquet")
     target_path = target.get("path_template")
     _require(isinstance(target_path, str) and target_path.startswith(f"s3a://lakehouse/{zone}/{domain}/{name}/"), "target path must match target zone/domain/dataset")
@@ -71,7 +71,7 @@ def validate_contract(contract: dict[str, Any]) -> None:
         _require(isinstance(field, dict), f"fields[{index}] must be an object")
         field_name = field.get("name")
         _require(isinstance(field_name, str) and IDENTIFIER.fullmatch(field_name), f"fields[{index}].name must be lowercase snake_case")
-        _require(field.get("type") in FIELD_TYPES, f"fields[{index}].type is unsupported")
+        _require(isinstance(field.get("type"), str) and field["type"] in FIELD_TYPES, f"fields[{index}].type is unsupported")
         _require(isinstance(field.get("nullable"), bool), f"fields[{index}].nullable must be boolean")
         _require(isinstance(field.get("description"), str) and len(field["description"].strip()) >= 3, f"fields[{index}].description is too short")
         field_names.append(field_name)
@@ -80,6 +80,7 @@ def validate_contract(contract: dict[str, Any]) -> None:
 
     primary_key = contract["primary_key"]
     _require(isinstance(primary_key, list) and primary_key, "primary_key must be a non-empty array")
+    _require(all(isinstance(key, str) for key in primary_key), "primary_key entries must be strings")
     _require(len(primary_key) == len(set(primary_key)), "primary_key entries must be unique")
     for key in primary_key:
         _require(key in nullable_by_name, f"primary key field '{key}' is not declared")
@@ -87,6 +88,7 @@ def validate_contract(contract: dict[str, Any]) -> None:
 
     partitions = contract["partition_by"]
     _require(isinstance(partitions, list), "partition_by must be an array")
+    _require(all(isinstance(partition, str) for partition in partitions), "partition_by entries must be strings")
     _require(len(partitions) == len(set(partitions)), "partition_by entries must be unique")
     for partition in partitions:
         _require(partition in nullable_by_name, f"partition field '{partition}' is not declared")
@@ -99,7 +101,7 @@ def validate_contract(contract: dict[str, Any]) -> None:
         rule_id = rule.get("rule_id")
         _require(isinstance(rule_id, str) and IDENTIFIER.fullmatch(rule_id), f"quality_rules[{index}].rule_id is invalid")
         _require(isinstance(rule.get("description"), str) and len(rule["description"].strip()) >= 5, f"quality_rules[{index}].description is too short")
-        _require(rule.get("severity") in {"error", "warning"}, f"quality_rules[{index}].severity must be error or warning")
+        _require(isinstance(rule.get("severity"), str) and rule["severity"] in {"error", "warning"}, f"quality_rules[{index}].severity must be error or warning")
         rule_ids.append(rule_id)
     _require(len(rule_ids) == len(set(rule_ids)), "quality rule IDs must be unique")
 

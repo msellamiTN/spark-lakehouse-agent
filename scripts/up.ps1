@@ -15,9 +15,27 @@ $awsSdkLine = Get-Content ".env" | Where-Object { $_ -match "^\s*AWS_SDK_BUNDLE_
 if ($awsSdkLine -and $awsSdkLine -notmatch "AWS_SDK_BUNDLE_VERSION=1\.12\.262") {
     throw "AWS_SDK_BUNDLE_VERSION must remain 1.12.262 for hadoop-aws 3.3.4."
 }
+# Create Compose env_file placeholders before the first project-wide validation.
+New-Item -ItemType Directory -Force "secrets" | Out-Null
+foreach ($secretFile in @("secrets/spark-s3a.env", "secrets/minio-mcp.env")) {
+    if (-not (Test-Path $secretFile)) { New-Item -ItemType File $secretFile | Out-Null }
 }
+
 docker compose config --quiet
 if ($LASTEXITCODE -ne 0) { throw "Compose configuration is invalid" }
+
+# Build the pinned MinIO Client image locally; mc itself runs only in this container.
+docker compose build minio-init
+if ($LASTEXITCODE -ne 0) { throw "MinIO Client image build failed" }
+
+# Start MinIO alone, provision the bucket and scoped identities, then start workloads.
+docker compose up -d minio
+if ($LASTEXITCODE -ne 0) { throw "MinIO startup failed" }
+& .\scripts\bootstrap-minio.ps1
+if ($LASTEXITCODE -ne 0) { throw "MinIO identity bootstrap failed" }
+
+docker compose config --quiet
+if ($LASTEXITCODE -ne 0) { throw "Compose configuration is invalid after MinIO bootstrap" }
 # Build the shared Spark/S3A base before Jupyter and MCP images that inherit it.
 docker compose build spark-master
 if ($LASTEXITCODE -ne 0) { throw "Spark S3A base image build failed" }

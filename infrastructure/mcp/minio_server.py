@@ -21,8 +21,8 @@ mcp = FastMCP(
 )
 
 ENDPOINT = os.getenv("MINIO_ENDPOINT", "http://minio:9000")
-ACCESS_KEY = os.getenv("MINIO_MCP_ACCESS_KEY") or os.getenv("MINIO_ROOT_USER", "")
-SECRET_KEY = os.getenv("MINIO_MCP_SECRET_KEY") or os.getenv("MINIO_ROOT_PASSWORD", "")
+ACCESS_KEY = os.getenv("MINIO_MCP_ACCESS_KEY", "")
+SECRET_KEY = os.getenv("MINIO_MCP_SECRET_KEY", "")
 REGION = os.getenv("MINIO_REGION", "us-east-1")
 ALLOWED_BUCKETS = {
     value.strip() for value in os.getenv("MINIO_MCP_ALLOWED_BUCKETS", "lakehouse").split(",")

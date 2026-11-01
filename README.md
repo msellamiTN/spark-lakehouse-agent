@@ -18,7 +18,7 @@ A containerized Spark Lakehouse and MCP platform for Data Engineering and Agenti
 | Tailscale | Containerized userspace networking | Private tailnet |
 | Tailscale Serve | HTTPS 443, configured from JSON | Tailnet only; Funnel disabled |
 
-MinIO is the canonical object-storage layer for the Lakehouse (Raw → Bronze → Silver → Gold). The Compose configuration now builds a Spark image with the Hadoop S3A connector and configures Spark drivers/workers to access the MinIO `lakehouse` bucket. Compose reuses the existing MinIO root credentials for Spark S3A in this simple single-user lab profile; no extra Spark credentials or setup command are required. Create the `lakehouse` bucket once in the MinIO Console, rebuild the images and run `./scripts/validate.sh` to verify distributed Parquet write/read. The local `./lakehouse` mount is retained only for transitional scratch/import workflows. Retail ingestion, CrewAI orchestration, and Streamlit dashboards remain later phases.
+MinIO is the canonical object-storage layer for the Lakehouse (Raw → Bronze → Silver → Gold). The Compose deployment builds a Spark image with the Hadoop S3A connector and builds a dedicated, checksum-verified MinIO Client image from a pinned upstream release. The `mc` executable runs only inside this one-shot container; it is never installed on the host. `scripts/bootstrap-minio.sh` uses it to create the `lakehouse` bucket plus separate bucket-scoped identities for Spark and MinIO MCP. Root credentials remain reserved for MinIO administration and bootstrap; application containers receive only their own restricted credentials from ignored local files under `secrets/`. Use `./scripts/up.sh` to bootstrap and start the platform, then `./scripts/validate.sh` to verify distributed Parquet write/read and IAM boundaries. The local `./lakehouse` mount is retained only for transitional scratch/import workflows. Retail ingestion, CrewAI orchestration, and Streamlit dashboards remain later phases.
 
 ## 2. Architecture
 
@@ -141,7 +141,7 @@ TS_AUTHKEY=tskey-auth-<your-tagged-reusable-key>
 TS_HOSTNAME=spark-lakehouse-agent
 ```
 
-For this single-user lab profile, Spark automatically reuses `MINIO_ROOT_USER` and `MINIO_ROOT_PASSWORD` already configured in `.env`; do not add `SPARK_S3A_*` variables. This avoids manual key creation and extra shell commands. Create the `lakehouse` bucket once in the MinIO Console if it does not exist. Note that this gives Spark MinIO administrative privileges; use a dedicated bucket-scoped identity before enabling untrusted student workloads or production data. Existing deployments must update `SPARK_IMAGE` to `spark-lakehouse-s3a:3.5.6` and add `SPARK_BASE_IMAGE`; the existing `.env` is intentionally not overwritten. Use the actual variable names and any additional required settings already present in your `.env.example`. Do not paste secrets into chat, commit `.env`, or give the platform Tailscale auth key to students. The Tailscale key must be a reusable, non-ephemeral key restricted to `tag:spark-lakehouse-mcp`. If you need to replace a key, create the replacement in the Tailscale admin console and update only the `TS_AUTHKEY` value.
+The MinIO root credentials remain in `.env` for the MinIO server and one-shot bootstrap/admin operations only. Do not add them to Spark or MCP environment variables. `./scripts/up.sh` creates the bucket-scoped Spark and MinIO MCP identities and stores their credentials in ignored files under `secrets/`. Existing deployments must update `SPARK_IMAGE` to `spark-lakehouse-s3a:3.5.6` and add `SPARK_BASE_IMAGE`; the existing `.env` is intentionally not overwritten. Use the actual variable names and any additional required settings already present in `.env.example`. Do not paste secrets into chat, commit `.env` or `secrets/`, or give the platform Tailscale auth key to students. The Tailscale key must be a reusable, non-ephemeral key restricted to `tag:spark-lakehouse-mcp`. If you need to replace a key, create the replacement in the Tailscale admin console and update only the `TS_AUTHKEY` value.
 
 Check that the key is not still the sample placeholder without printing the secret:
 
@@ -343,7 +343,7 @@ docker compose up -d
 - Funnel is disabled.
 - Do not expose Jupyter, Spark UI/RPC, MinIO API/console, Ollama, or Docker daemon to students.
 - Keep Spark MCP bounded and read-only; MinIO writes are disabled by default.
-- Spark uses a dedicated MinIO service account for S3A; do not reuse MinIO root credentials. The current shared Spark identity is not per-student isolation.
+- Spark and MinIO MCP use separate bucket-scoped MinIO service accounts; neither application receives root credentials. The Spark identity is shared by the platform and is not per-student isolation.
 - Tailscale ACLs control network reachability; they do not isolate individual student data, Spark sessions, MinIO buckets, or MCP tool permissions. Before sharing sensitive data or enabling writes, implement per-team buckets/service accounts and Spark-side authorization/session isolation.
 - This is a training/lab deployment, not a production-hardened multi-tenant platform.
 

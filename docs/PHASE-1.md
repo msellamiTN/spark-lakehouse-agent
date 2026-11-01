@@ -91,10 +91,10 @@ docker compose down
 The current Compose configuration includes the Spark S3A integration:
 - The custom Spark runtime adds `hadoop-aws:3.3.4` and `aws-java-sdk-bundle:1.12.262`, matching the Hadoop 3.3.4 client in the pinned Spark base image.
 - Spark uses the MinIO endpoint `http://minio:9000`, path-style S3 requests and environment-injected credentials.
-- The existing MinIO root credentials are passed automatically to Jupyter, Spark MCP and both worker containers; no additional Spark credential variables are required.
+- `scripts/bootstrap-minio.sh` creates separate bucket-scoped identities for Spark and MinIO MCP. Root credentials are reserved for MinIO administration and bootstrap; they are not injected into application containers.
 - The `lakehouse` bucket is the canonical data lake. Raw, Bronze, Silver and Gold are object prefixes; Parquet is the baseline data format.
 - Run `./scripts/validate.sh` after rebuilding. The S3A integration check writes and reads a small distributed Parquet dataset and removes its unique validation prefix.
 
-**Runtime acceptance is still required on each host.** A committed Compose configuration does not prove that the image has been rebuilt, the `lakehouse` bucket exists, or the round-trip test passes. Create the bucket once in the MinIO Console; no separate Spark identity is provisioned. See [the S3A/MinIO runbook](storage/MINIO-SPARK-S3A.md).
+**Runtime acceptance is still required on each host.** A committed Compose configuration does not prove that the images have been rebuilt, the service accounts have been provisioned, or the round-trip and IAM boundary tests pass. Run `./scripts/up.sh` to bootstrap the bucket and identities, then `./scripts/validate.sh`. See [the S3A/MinIO runbook](storage/MINIO-SPARK-S3A.md).
 
 The shared local `/lakehouse` bind mount remains temporarily for legacy scratch/import workflows only; it is not the canonical lake. CrewAI and Streamlit are not started in this phase. Spark MCP and MinIO MCP remain separate agent-facing interfaces; no agent runtime is bundled.

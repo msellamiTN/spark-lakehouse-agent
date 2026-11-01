@@ -133,7 +133,7 @@ s3a://lakehouse/
 - MinIO owns durable Lakehouse objects; Spark 3.5.6 is the distributed compute engine.
 - The custom Spark image adds `hadoop-aws:3.3.4` and `aws-java-sdk-bundle:1.12.262`, aligned with the Hadoop 3.3.4 client bundled in the base image. The Dockerfile fails if the expected Hadoop client JARs are absent.
 - `infrastructure/spark/spark-defaults.conf` configures `s3a://lakehouse/<zone>/<domain>/<dataset>/`, the internal MinIO endpoint, path-style requests and the AWS SDK environment-variable credential provider.
-- For the simple single-user lab profile, Compose injects the existing `MINIO_ROOT_USER` / `MINIO_ROOT_PASSWORD` into Jupyter, Spark MCP and both worker containers as the AWS S3A environment credentials. No separate Spark credential-generation workflow is required. This gives Spark administrative MinIO privileges; replace it with a bucket-scoped service identity before untrusted multi-user or production use.
+- `scripts/bootstrap-minio.sh` provisions separate bucket-scoped service identities for Spark and MinIO MCP. Root credentials remain reserved for the MinIO server and one-shot bootstrap/admin operations; they are not injected into application containers.
 - Use Parquet as the baseline columnar format. Plain Parquet is not transactional; Delta Lake or Apache Iceberg require their own compatible runtime/catalog and commit protocol.
 - Keep MinIO MCP on its separate, more restricted identity; agent write access remains disabled unless explicitly approved.
 - Streaming checkpoints belong in dedicated persistent MinIO prefixes and must not be mixed with curated table data.
@@ -144,7 +144,7 @@ s3a://lakehouse/
 The repository now configures the Spark-to-MinIO path in Compose:
 - A custom Spark image adds the Hadoop S3A connector and its matching AWS SDK bundle.
 - The same `spark-defaults.conf` is mounted into the Spark master/workers, Jupyter and Spark MCP.
-- The Jupyter and Spark MCP drivers, plus both Spark workers, receive the existing MinIO root credentials through Compose environment interpolation for the simple lab profile.
+- Jupyter, Spark MCP and both Spark workers receive only the generated Spark service-account credentials through `secrets/spark-s3a.env`; MinIO MCP receives its separate identity through `secrets/minio-mcp.env`.
 - Jupyter and Spark MCP wait for MinIO to start before their own startup.
 
 This is **configuration committed to Git**, not proof of a successful OVH runtime. Rebuild the images and run `./scripts/validate.sh`; the added `notebooks/validate_minio_s3a.py` performs a distributed Parquet write/read round trip through S3A and cleans up only its unique validation prefix. Until that test passes on the OVH host, mark live integration as pending.
@@ -188,9 +188,9 @@ Connects to http://minio:9000. list_buckets checks only configured allowlist ent
 
 1. **Private ingress:** Tailscale Serve is tailnet-only; Funnel is disabled.
 2. **No public service listeners:** published Docker ports bind to 127.0.0.1.
-3. **Secret handling:** credentials and auth keys stay in local .env, excluded from Git. Never put them in notebooks, prompts, logs, or screenshots.
+3. **Secret handling:** root/admin settings stay in local `.env`; generated application identities stay in ignored `secrets/` env files. Never put credentials or auth keys in notebooks, prompts, logs, or screenshots.
 4. **MinIO identity:** use a dedicated MCP service account, not root. Grant bucket-scoped List/Get and optional Put only under agent-outputs/*.
-5. **Spark S3A credentials:** the simple single-user lab profile reuses MinIO root credentials in Spark drivers and workers to avoid manual provisioning. This grants administrative access and is not suitable for untrusted multi-user or production workloads; use a bucket-scoped Spark identity for those environments.
+5. **Spark S3A credentials:** Spark uses a dedicated access key scoped to the `lakehouse` bucket. The identity is shared across the platform and is not per-student isolation.
 6. **Spark query safety:** preserve read-only validation and bounded result sizes.
 7. **Student isolation:** Tailscale ACLs do not isolate Spark sessions, objects, or tool permissions. Per-team identities/buckets and Spark authorization are required before sensitive multi-tenant use.
 8. **Persistence safety:** docker compose down -v deletes named volumes, including MinIO data and Tailscale identity.

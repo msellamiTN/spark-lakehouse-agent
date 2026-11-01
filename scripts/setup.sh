@@ -28,7 +28,11 @@ MINIO_PASSWORD_VALUE="$(sed -n 's/^MINIO_ROOT_PASSWORD=//p' .env | tail -n 1)"
   exit 1
 }
 
-mkdir -p notebooks retail lakehouse/{raw,bronze,silver,gold,checkpoints}
+mkdir -p notebooks retail lakehouse/{raw,bronze,silver,gold,checkpoints} secrets
+# Compose env_file paths must exist before the first config validation.
+touch secrets/spark-s3a.env secrets/minio-mcp.env secrets/.gitkeep
+chmod 700 secrets
+chmod 600 secrets/spark-s3a.env secrets/minio-mcp.env
 touch notebooks/.gitkeep retail/.gitkeep lakehouse/bronze/.gitkeep lakehouse/silver/.gitkeep lakehouse/gold/.gitkeep
 docker compose config --quiet
 echo "Setup checks passed. Run ./scripts/up.sh to start the complete stack."

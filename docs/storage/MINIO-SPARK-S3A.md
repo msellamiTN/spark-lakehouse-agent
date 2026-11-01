@@ -1,115 +1,129 @@
 # Spark S3A ↔ MinIO Lakehouse integration
 
-This runbook configures MinIO as the canonical Lakehouse object store for the Spark 3.5.6 Standalone cluster. Raw, Bronze, Silver and Gold are prefixes in the existing `lakehouse` bucket. Spark accesses them through Hadoop S3A; the local `./lakehouse` bind mount remains only as a legacy scratch/import workspace and is not the canonical data lake.
+This runbook configures MinIO as the canonical Lakehouse object store for the Spark 3.5.6 Standalone cluster. Raw, Bronze, Silver and Gold are prefixes in the persistent `lakehouse` bucket. Spark accesses them through Hadoop S3A; the local `./lakehouse` bind mount remains a legacy scratch/import workspace, not the canonical data lake.
 
 ## 1. Runtime and dependency alignment
 
-The custom Spark image is built from the pinned Apache Spark base image and adds:
-
 | Component | Pinned version | Reason |
 |---|---:|---|
-| Apache Spark | 3.5.6 | Existing cluster runtime |
-| Hadoop client | 3.3.4 | Version bundled with this Spark image; build fails if the expected client JARs are absent |
+| Apache Spark | 3.5.6 | Cluster runtime |
+| Hadoop client | 3.3.4 | Version bundled with the Spark image |
 | `hadoop-aws` | 3.3.4 | Must match Hadoop client exactly |
 | `aws-java-sdk-bundle` | 1.12.262 | Dependency declared by `hadoop-aws:3.3.4` |
-| `wildfly-openssl` | 1.0.7.Final | Optional runtime dependency declared by `hadoop-aws:3.3.4`; JSSE is explicitly selected, so native OpenSSL acceleration is not used |
+| `wildfly-openssl` | 1.0.7.Final | Optional dependency; JSSE is explicitly selected |
+| MinIO Client | `RELEASE.2025-08-13T08-35-41Z` | Pinned bootstrap client |
 
-Do not upgrade `hadoop-aws` independently. Hadoop's S3A connector and Hadoop client libraries must use identical versions; mismatches can cause linkage errors such as `NoSuchMethodError`. The build intentionally checks the Hadoop client JAR names before downloading the S3A dependencies.
+Do not upgrade `hadoop-aws` independently. The Hadoop client and S3A connector must use identical versions. The custom image build checks the expected Hadoop client JARs before adding the S3A dependencies.
 
-The image is built first by `./scripts/up.sh`; that script then builds Jupyter and both MCP images against the local custom Spark image. This explicit order avoids dependent Docker builds trying to pull the not-yet-built local base image. The OVH host must be able to reach `repo.maven.apache.org` over HTTPS during the Spark image build.
+## 2. Identity and authorization model
 
-## 2. MinIO bucket and credentials
+MinIO root credentials remain in the root-only MinIO server configuration and are used by the one-shot bootstrap/admin process. They are **not** injected into Spark, Jupyter, Spark MCP or MinIO MCP.
 
-The configured bucket is `lakehouse`. Create it once through the MinIO Console (`http://<OVH-host>:9001`, via your private admin access): **Object Browser → Create Bucket → lakehouse**. No shell command, `mc` client, extra service account, or additional Spark credential is required.
+| Identity | Runtime consumers | Permissions |
+|---|---|---|
+| MinIO root | MinIO server; bootstrap/admin only | Administrative |
+| `SPARKLAKEHOUSE01` | Spark workers, Jupyter driver, Spark MCP driver | Bucket-scoped list, read, write, multipart and delete operations in `lakehouse` |
+| `MINIOMCPLAKEHOUSE1` | MinIO MCP only | Read-only access to `lakehouse`; optional PutObject limited to `agent-outputs/*` |
 
-For the simple single-host lab profile, Compose reuses the MinIO credentials already present in `.env`:
+The two application identities have separate inline IAM policies. Neither policy grants account-wide bucket enumeration or access to another bucket. MinIO MCP also retains its application-level bucket allowlist, object-key validation, byte limits and write-prefix checks. IAM is an additional enforcement layer, not a replacement for those controls.
 
-- `MINIO_ROOT_USER` is injected as `AWS_ACCESS_KEY_ID`.
-- `MINIO_ROOT_PASSWORD` is injected as `AWS_SECRET_ACCESS_KEY`.
+The bootstrap uses MinIO's service-account API through a dedicated one-shot Docker service. Its image is built locally from the pinned MinIO Client release `RELEASE.2025-08-13T08-35-41Z`; the Docker build verifies the binary against the pinned SHA-256 digest `01f866e9c5f9b87c2b09116fa5d7c06695b106242d829a8bb32990c00312e891`. The runtime image is minimal (`scratch`) and contains only the client executable and CA certificates. No host-level `mc` installation or external `minio/mc` image pull is required. The policy attached to an access key can only restrict the permissions of its parent identity; it cannot grant permissions the parent does not have. See the MinIO Client references for [service-account creation](https://miniodocs.cc/reference/minio-mc-admin/mc-admin-user-svcacct-add) and [policy management](https://min.io/docs/minio/linux/reference/minio-mc-admin/mc-admin-policy.html).
 
-The same values are passed to both Spark workers, Jupyter (the Spark driver), and Spark MCP (the Spark driver). The Hadoop S3A environment-variable credential provider reads them automatically. You do not need `SPARK_S3A_ACCESS_KEY`, `SPARK_S3A_SECRET_KEY`, or any manual credential-generation step. Do not duplicate the credentials in `spark-defaults.conf`.
+## 3. Bootstrap and local secret files
 
-**Security trade-off:** MinIO root credentials have administrative privileges, not bucket-scoped permissions. This is intentionally the simplest configuration for a trusted, single-user lab. Do not use this profile for untrusted students, sensitive data, or production multi-tenancy. For those cases, switch to a dedicated bucket-scoped Spark service identity or a secrets manager. Keep MinIO MCP's optional identity and tool-level allowlist separate; the Spark root credential does not change MCP's own authorization checks.
-
-## 3. S3A configuration
-
-The read-only configuration file `infrastructure/spark/spark-defaults.conf` sets:
-
-- `fs.s3a.impl=org.apache.hadoop.fs.s3a.S3AFileSystem`
-- `fs.s3a.endpoint=http://minio:9000` (Docker-internal endpoint)
-- `fs.s3a.endpoint.region=us-east-1` (explicit signing region, matching the MinIO client configuration)
-- `fs.s3a.path.style.access=true` (required for this MinIO endpoint style)
-- TLS disabled only on the private Docker bridge; use HTTPS if the object endpoint crosses a network boundary
-- `fs.s3a.ssl.channel.mode=default_jsse` to avoid depending on native OpenSSL compatibility
-- AWS SDK environment-variable credentials provider
-- Conservative connection, thread and multipart defaults
-
-The Spark master, workers, Jupyter and Spark MCP receive the same configuration file. The workers, Jupyter driver and Spark MCP driver receive the existing MinIO root credentials through Compose environment interpolation, so executor-side and driver-side S3A operations can authenticate.
-
-## 5. Rebuild and validate
-
-From the repository root on the OVH host:
+The normal deployment entry point is:
 
 ```bash
 ./scripts/up.sh
-docker compose ps
 ```
 
-The script builds the Spark/S3A base image first, then builds Jupyter and MCP images that inherit it, and finally starts the stack.
+It performs these steps in order:
 
-Then run:
+1. Creates empty, private env-file placeholders so Compose can validate the project.
+2. Builds the `minio-init` image; its build stage downloads the pinned Linux AMD64 client and verifies its SHA-256 digest.
+3. Starts only the persistent MinIO service.
+4. Runs `scripts/bootstrap-minio.sh` through the temporary `minio-init` client service.
+5. Waits for MinIO readiness and creates `lakehouse` only if it is absent.
+6. Creates the two application access keys if they do not already exist, attaching their least-privilege policies.
+7. Writes the generated credentials into local files and sets restrictive permissions.
+8. Builds the Spark/S3A, Jupyter and MCP images, then starts the complete stack.
+
+Generated files:
+
+- `secrets/spark-s3a.env`: `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` for S3A.
+- `secrets/minio-mcp.env`: `MINIO_MCP_ACCESS_KEY` and `MINIO_MCP_SECRET_KEY` for MinIO MCP.
+
+The `secrets/` directory is ignored by Git. The bootstrap applies mode `0700` to the directory and `0600` to credential files. The temporary MinIO Client config containing the root alias is removed when the script exits. **Never commit these files, paste their contents into chat, or print their values in logs.**
+
+The bootstrap is idempotent when the credential files and corresponding MinIO access keys both exist: it retains the existing secrets and reconciles the attached policies. If an access key already exists but its local secret file is missing, the script stops rather than silently rotating credentials or generating a new key. Recover or rotate that identity deliberately before retrying.
+
+For production, replace local env files with a secrets manager and runtime secret injection. Local files are a pragmatic deployment mechanism for this single-host lab, not a production secrets-management solution.
+
+## 4. Optional MinIO MCP writes
+
+Writes are disabled by default:
+
+```dotenv
+MINIO_MCP_ALLOW_WRITES=false
+MINIO_MCP_WRITE_PREFIXES=agent-outputs/
+```
+
+If writes are intentionally enabled, set `MINIO_MCP_ALLOW_WRITES=true` and keep `MINIO_MCP_WRITE_PREFIXES=agent-outputs/`. The bootstrap then reconciles a policy that grants only `s3:PutObject` under `lakehouse/agent-outputs/*`; it does not grant object deletion. Other prefixes are rejected by the bootstrap because they would not match the IAM boundary. Restart the platform after changing the setting.
+
+## 5. S3A configuration
+
+`infrastructure/spark/spark-defaults.conf` configures:
+
+- `fs.s3a.impl=org.apache.hadoop.fs.s3a.S3AFileSystem`
+- `fs.s3a.endpoint=http://minio:9000` on the private Docker bridge
+- `fs.s3a.endpoint.region=us-east-1`
+- `fs.s3a.path.style.access=true`
+- TLS disabled only on the private Docker bridge
+- JSSE and the AWS environment-variable credential provider
+
+Spark workers, Jupyter and Spark MCP receive only the generated Spark service-account env file. The Spark master does not receive S3 credentials because it is the cluster control plane, not an application driver or executor.
+
+## 6. Validation
+
+After deployment:
 
 ```bash
+docker compose ps
 ./scripts/validate.sh
 ```
 
-The validation suite includes `notebooks/validate_minio_s3a.py`. It:
+The validation suite checks service health, MCP guardrail unit tests, Spark distributed execution, S3A Parquet write/read, MinIO health and Tailscale Serve. It additionally verifies that application containers do not receive root credentials and that the Spark and MinIO MCP identities can access `lakehouse` but cannot enumerate all account buckets. When MCP writes are disabled, it also verifies that the MCP identity is denied PutObject.
 
-1. Confirms the runtime Hadoop version is 3.3.4 and the S3A classes load.
-2. Confirms the configured MinIO endpoint.
-3. Creates a unique disposable prefix under `lakehouse/_system/validation/`.
-4. Writes a small Parquet dataset from a distributed Spark DataFrame.
-5. Reads the Parquet dataset back through S3A and verifies the rows.
-6. Deletes only that unique validation prefix.
+A successful S3A round-trip proves the driver and distributed executor path. It does not prove production throughput, high availability, transactional table commits or per-student isolation.
 
-The test waits for MinIO readiness and uses the configured MinIO credentials to perform ListBucket, GetObject, PutObject and DeleteObject operations under the validation prefix. It does not modify Raw/Bronze/Silver/Gold datasets. A passing validation confirms the driver and distributed executor path; it does not validate production throughput, HA, catalog transactions or multi-tenant isolation.
-
-## 6. Canonical object layout
+## 7. Canonical object layout
 
 ```text
 s3a://lakehouse/
-├── raw/<source>/<dataset>/          # Source-aligned landing
-├── bronze/<domain>/<dataset>/       # Traceable ingested datasets
-├── silver/<domain>/<dataset>/       # Cleansed and conformed data
-├── gold/<product>/<dataset>/        # Business-ready data products
-├── checkpoints/<pipeline>/         # Streaming checkpoints
-├── quarantine/<domain>/             # Rejected records
-└── _system/validation/              # Disposable integration-test prefix
+├── raw/<source>/<dataset>/
+├── bronze/<domain>/<dataset>/
+├── silver/<domain>/<dataset>/
+├── gold/<product>/<dataset>/
+├── checkpoints/<pipeline>/
+├── quarantine/<domain>/
+├── agent-outputs/                 # Optional MCP write prefix
+└── _system/validation/             # Disposable integration-test prefix
 ```
 
-Use Parquet as the baseline file format. Plain Parquet on S3A is not transactional: do not claim ACID table guarantees. If concurrent writers, atomic table commits, schema evolution or time travel are required, select and configure a compatible table format such as Apache Iceberg or Delta Lake together with its catalog and commit protocol.
+Use Parquet as the baseline file format. Plain Parquet on S3A is not transactional. If concurrent writers, atomic commits, schema evolution or time travel are required, select a compatible table format such as Apache Iceberg or Delta Lake together with its catalog and commit protocol.
 
-## 7. Troubleshooting
+## 8. Troubleshooting and safety
 
 | Symptom | Likely cause | Check |
 |---|---|---|
-| `ClassNotFoundException: org.apache.hadoop.fs.s3a.S3AFileSystem` | S3A JAR missing from runtime | Rebuild custom Spark image; inspect `/opt/spark/jars` |
-| Image build cannot download JARs | Outbound HTTPS to Maven Central is blocked | Verify the OVH host can reach `repo.maven.apache.org:443` |
-| Build fails Hadoop client JAR check | Spark base image does not contain the pinned Hadoop client | Keep the Spark 3.5.6 base image or align all Hadoop/S3A versions together |
-| `NoSuchMethodError` in Hadoop/AWS classes | Hadoop or AWS SDK version conflict | Keep hadoop-aws 3.3.4 and SDK bundle 1.12.262 aligned |
-| `AccessDenied` / HTTP 403 | Wrong MinIO credentials or bucket policy | Confirm `.env` MinIO root credentials match the running MinIO instance; do not print them |
-| `InvalidAccessKeyId` | Credentials not recognized by MinIO | Confirm the `.env` values match the MinIO instance; recreate Spark containers after changing credentials |
-| `UnknownHostException: minio` | Driver not on Compose network or wrong endpoint | Use `http://minio:9000` from platform containers |
-| Signature / endpoint errors | Path-style or endpoint mismatch | Keep path-style access enabled and endpoint exact |
-| Driver succeeds but executor fails | Credentials not present in worker containers | Check AWS env variable presence on both workers without printing values |
-| Bucket not found | `lakehouse` bucket absent or wrong endpoint | Verify bucket existence in MinIO Console; do not delete `minio_data` |
+| Compose reports missing env file | Bootstrap placeholders have not been created | Run `./scripts/up.sh`, not bare `docker compose up` on a fresh checkout |
+| MinIO Client image build fails | Outbound GitHub access, release asset or checksum mismatch | Inspect the `minio-init` build output; do not bypass the pinned SHA-256 verification |
+| `AccessDenied` from Spark | Spark identity/policy mismatch | Re-run `bash ./scripts/bootstrap-minio.sh`; inspect policy and key status without printing secrets |
+| `InvalidAccessKeyId` | Service account is absent, disabled or mismatched | Check `mc admin user svcacct info` using the admin bootstrap workflow |
+| `ClassNotFoundException` for S3A | S3A JAR missing | Rebuild the custom Spark image |
+| `NoSuchMethodError` in Hadoop/AWS | Dependency mismatch | Keep Hadoop and `hadoop-aws` at 3.3.4 and AWS SDK bundle at 1.12.262 |
+| Bucket not found | Bootstrap did not complete or wrong endpoint | Check MinIO health and bucket existence; do not delete `minio_data` |
 
-Safe credential-presence check (prints booleans only):
+Never run `docker compose down -v` to troubleshoot S3A or MinIO. It deletes the persistent `minio_data` volume, along with other named volumes. A normal `docker compose down` preserves volumes.
 
-```bash
-docker compose exec spark-worker-1 sh -lc 'test -n "$AWS_ACCESS_KEY_ID" && test -n "$AWS_SECRET_ACCESS_KEY" && echo "worker 1 credentials present"'
-docker compose exec spark-worker-2 sh -lc 'test -n "$AWS_ACCESS_KEY_ID" && test -n "$AWS_SECRET_ACCESS_KEY" && echo "worker 2 credentials present"'
-docker compose exec jupyter sh -lc 'test -n "$AWS_ACCESS_KEY_ID" && test -n "$AWS_SECRET_ACCESS_KEY" && echo "Jupyter credentials present"'
-```
-
-Never run `docker compose down -v` to troubleshoot S3A. It deletes persistent MinIO data and other named volumes.
+This remains a single-host training/lab platform. A shared Spark service identity is not per-student data isolation; use separate buckets/identities and Spark-side authorization/session isolation before processing sensitive multi-tenant data.

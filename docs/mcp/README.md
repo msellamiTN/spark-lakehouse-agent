@@ -79,14 +79,14 @@ Environment variables:
 
 The Compose service uses `MINIO_IMAGE` from `.env`. The template defaults to the publicly pullable Chainguard image `cgr.dev/chainguard/minio:latest`, rather than the discontinued upstream `minio/minio` Docker Hub image. The Chainguard image runs as non-root UID/GID `65532`; keep the named `minio_data` volume and do not apply a blanket `chown` or delete the volume to troubleshoot permissions. If MinIO reports a data-directory permission error, inspect the volume ownership and logs before making a data-preserving ownership correction.
 
-1. Open the MinIO Console at `http://localhost:9001`.
-2. Authenticate with the credentials in `.env`.
-3. Create the `lakehouse` bucket, or set `MINIO_MCP_ALLOWED_BUCKETS` to existing bucket names.
-4. Prefer a dedicated MinIO service account with only the required bucket and prefix permissions.
-5. Put that account's credentials in `MINIO_MCP_ACCESS_KEY` and `MINIO_MCP_SECRET_KEY`.
-6. Recreate the MCP container after changing environment variables.
+The bucket and service identities are provisioned by `scripts/bootstrap-minio.sh`, called by `./scripts/up.sh` (or `./scripts/up.ps1`). It creates the `lakehouse` bucket if absent and provisions two separate identities with inline least-privilege policies. Root credentials remain reserved for MinIO administration and bootstrap; MinIO MCP has no root-credential fallback.
 
-If the MCP-specific credentials are blank, the development configuration falls back to the MinIO root credentials. Do not use that fallback outside an isolated local lab.
+- Spark credentials are stored in the ignored local file `secrets/spark-s3a.env`.
+- MinIO MCP credentials are stored in the ignored local file `secrets/minio-mcp.env`.
+- `MINIO_MCP_ACCESS_KEY` and `MINIO_MCP_SECRET_KEY` are loaded into MinIO MCP from its dedicated env file.
+- The bootstrap retains existing keys and reconciles their policies. If a key exists but its local secret file is missing, it stops rather than silently rotating the key.
+
+On Linux, the bootstrap restricts the `secrets/` directory to mode `0700` and generated credential files to `0600`. Do not commit or print these files. For production, inject secrets from a secrets manager instead of relying on persistent local env files.
 
 ### Example least-privilege MinIO policy
 
@@ -138,8 +138,8 @@ Environment variables:
 |---|---|---|
 | `MINIO_ENDPOINT` | `http://minio:9000` | Internal S3 API endpoint |
 | `MINIO_MCP_ALLOWED_BUCKETS` | `lakehouse` | Comma-separated bucket allowlist |
-| `MINIO_MCP_ACCESS_KEY` | blank | Dedicated MCP access key; blank falls back to root in local lab |
-| `MINIO_MCP_SECRET_KEY` | blank | Dedicated MCP secret; blank falls back to root in local lab |
+| `MINIO_MCP_ACCESS_KEY` | generated locally | Dedicated MCP access key from `secrets/minio-mcp.env` |
+| `MINIO_MCP_SECRET_KEY` | generated locally | Dedicated MCP secret from `secrets/minio-mcp.env` |
 | `MINIO_MCP_ALLOW_WRITES` | `false` | Explicit write capability toggle |
 | `MINIO_MCP_WRITE_PREFIXES` | `agent-outputs/` | Comma-separated write prefixes |
 | `MINIO_MCP_MAX_READ_BYTES` | `1048576` | Maximum text object read size |
@@ -200,7 +200,7 @@ The integration configuration is committed, but each deployment must rebuild the
 - MCP itself does not add application-level authentication. The default remote path is private Tailscale Serve HTTPS on TCP 443; direct host listeners remain loopback-only.
 - Do not publish MCP ports to a LAN or public network. Tailnet grants restrict network reachability but do not provide per-tool authorization or per-student data isolation.
 - Use a dedicated MinIO identity and least-privilege policy. Keep the root account for MinIO administration only.
-- Keep all secrets in `.env`, excluded from Git.
+- Keep root/admin settings in `.env` and generated application secrets under `secrets/`; both are excluded from Git.
 - Restrict which agent runtimes can access the Docker network.
 - Review MCP tool calls and outputs in the agent host; MCP does not itself provide business approval or user consent.
 - Use service logs for diagnostics: `docker compose logs -f spark-mcp minio-mcp`.

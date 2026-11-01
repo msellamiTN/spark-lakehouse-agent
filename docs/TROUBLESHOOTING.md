@@ -48,104 +48,45 @@ The outer MCP response can have isError=false: the tool successfully returned a 
 | HeadBucket succeeds but ListBuckets fails | Bucket-level access exists; account-wide enumeration is not granted | Acceptable for least privilege; use bucket-scoped tools |
 | MinIO health = 200 but S3 fails | HTTP process healthy; S3 auth, authorization or bucket state is not | Diagnose credentials, bucket and IAM separately |
 
-### Safe identity comparison
+### Verify service identity isolation
 
-Reports only whether MCP credentials equal root identity and tests both. It never prints secret values.
+The current deployment does not pass MinIO root credentials into Spark, Jupyter, Spark MCP or MinIO MCP. Do not test the old root-credential fallback; it has been removed.
 
-~~~bash
-sudo docker compose exec -T minio-mcp python3 - <<'PY'
-import os
-import boto3
-from botocore.config import Config
-from botocore.exceptions import ClientError
-
-endpoint = os.getenv("MINIO_ENDPOINT", "http://minio:9000")
-root_user = os.getenv("MINIO_ROOT_USER", "")
-root_password = os.getenv("MINIO_ROOT_PASSWORD", "")
-mcp_user = os.getenv("MINIO_MCP_ACCESS_KEY", "")
-mcp_password = os.getenv("MINIO_MCP_SECRET_KEY", "")
-
-print("MCP access key equals root user:", mcp_user == root_user)
-print("MCP secret equals root password:", mcp_password == root_password)
-
-def test(label, user, password):
-    print("\n---", label, "---")
-    client = boto3.client(
-        "s3", endpoint_url=endpoint,
-        aws_access_key_id=user, aws_secret_access_key=password,
-        region_name="us-east-1",
-        config=Config(signature_version="s3v4",
-                      retries={"max_attempts": 1},
-                      s3={"addressing_style": "path"}),
-    )
-    for name, call in (
-        ("HeadBucket lakehouse", lambda: client.head_bucket(Bucket="lakehouse")),
-        ("ListBuckets", client.list_buckets),
-    ):
-        try:
-            result = call()
-            print(name, "SUCCESS",
-                  result.get("ResponseMetadata", {}).get("HTTPStatusCode"))
-            if name == "ListBuckets":
-                print("Bucket names:", [b["Name"] for b in result.get("Buckets", [])])
-        except ClientError as exc:
-            error = exc.response.get("Error", {})
-            print(name, "FAILED", "code:", error.get("Code"),
-                  "status:", exc.response.get("ResponseMetadata", {}).get("HTTPStatusCode"))
-
-if root_user and root_password:
-    test("ROOT CONFIGURATION", root_user, root_password)
-if mcp_user and mcp_password:
-    test("MCP IDENTITY", mcp_user, mcp_password)
-PY
-~~~
-
-### Create a missing bucket without deleting data
-
-Only after root authentication succeeds. This creates the bucket; it does not remove or reinitialize MinIO storage.
+Run the supported end-to-end checks:
 
 ~~~bash
-sudo docker compose exec -T minio-mcp python3 - <<'PY'
-import os
-import boto3
-from botocore.config import Config
-
-client = boto3.client(
-    "s3", endpoint_url=os.getenv("MINIO_ENDPOINT", "http://minio:9000"),
-    aws_access_key_id=os.environ["MINIO_ROOT_USER"],
-    aws_secret_access_key=os.environ["MINIO_ROOT_PASSWORD"],
-    region_name="us-east-1",
-    config=Config(signature_version="s3v4", s3={"addressing_style": "path"}),
-)
-try:
-    client.create_bucket(Bucket="lakehouse")
-    print("Created bucket: lakehouse")
-except Exception as exc:
-    print(type(exc).__name__, str(exc))
-    raise
-print("Buckets:", [b["Name"] for b in client.list_buckets().get("Buckets", [])])
-PY
+./scripts/up.sh
+./scripts/validate.sh
 ~~~
 
-### Temporary lab recovery vs production configuration
+The validation suite checks that Spark workers, Jupyter and Spark MCP have their S3A env vars but no `MINIO_ROOT_*` variables; MinIO MCP has its own `MINIO_MCP_*` identity and no root variables. It also tests bucket access and expected denial of account-wide bucket enumeration. With MCP writes disabled, it verifies that PutObject is denied.
 
-For an isolated lab only, MCP credentials can temporarily be aligned with root credentials to prove the service path:
+Safe boolean-only spot checks:
 
-1. Set both MINIO_MCP_ACCESS_KEY and MINIO_MCP_SECRET_KEY in local .env to matching root values.
-2. Recreate only the MCP container: docker compose up -d --force-recreate minio-mcp.
-3. Validate S3 access from the MCP container, then call MCP list_buckets.
-4. **Do not leave root credentials as the permanent MCP identity.**
+~~~bash
+docker compose exec spark-worker-1 sh -c 'test -n "$AWS_ACCESS_KEY_ID" && test -n "$AWS_SECRET_ACCESS_KEY" && test -z "${MINIO_ROOT_USER:-}" && echo "Spark identity present; no root identity"'
+docker compose exec minio-mcp sh -c 'test -n "$MINIO_MCP_ACCESS_KEY" && test -n "$MINIO_MCP_SECRET_KEY" && test -z "${MINIO_ROOT_USER:-}" && echo "MCP identity present; no root identity"'
+~~~
 
-For durable configuration, create a dedicated MinIO service account. Minimum read-only actions are typically s3:ListBucket on arn:aws:s3:::lakehouse and s3:GetObject on arn:aws:s3:::lakehouse/*. If writes are explicitly approved, add s3:PutObject only on arn:aws:s3:::lakehouse/agent-outputs/*. Verify against the deployed MinIO release and test the exact operations.
+Never print the env files or environment values.
 
-⚠️ Never run docker compose down -v, delete minio_data, reset the root password as a first response, or paste .env into chat to fix bucket authorization.
+### Reconcile the bucket and service identities
 
+Use the repository bootstrap instead of creating buckets or changing credentials through the MinIO MCP container:
+
+~~~bash
+bash ./scripts/bootstrap-minio.sh
+~~~
+
+The script waits for MinIO, creates `lakehouse` if absent, creates the Spark and MinIO MCP service accounts on first run, and reconciles their inline policies on later runs. It retains existing keys and does not rotate secrets automatically. If a service account exists but its local secret file is missing, stop and perform an explicit recovery/rotation; do not replace the file with root credentials.
+
+Never run `docker compose down -v`, delete `minio_data`, or reset the MinIO root password to fix an authorization problem.
 ## 3. Common MinIO errors
 
 ### InvalidAccessKeyId
 - Confirm the MCP container has the intended access key.
 - If .env changed, recreate minio-mcp; containers do not reload environment automatically.
-- Set both MCP variables together. The application falls back independently per variable, so setting only one can create a mismatched key pair.
+- Do not put `MINIO_MCP_ACCESS_KEY` or `MINIO_MCP_SECRET_KEY` in `.env`; the bootstrap manages both together in `secrets/minio-mcp.env`. There is no root fallback.
 - Never print credentials in logs.
 
 ### 403 Forbidden
@@ -154,8 +95,7 @@ For durable configuration, create a dedicated MinIO service account. Minimum rea
 - Do not infer that a bucket is absent from a 403 alone.
 
 ### 404 for HeadBucket
-- Check the authenticated root identity's ListBuckets result.
-- If absent, create the bucket with an administrative identity.
+- Run `bash ./scripts/bootstrap-minio.sh` to verify/create the configured bucket with the administrative bootstrap identity.
 - If listed, verify exact spelling and endpoint.
 
 ### Empty list_objects result
@@ -293,7 +233,7 @@ Do not prune volumes or remove Docker data directories without confirming backup
 - [ ] Exact endpoint path and HTTP status
 - [ ] JSON-RPC method/tool name and sanitized response
 - [ ] S3 error code and operation (HeadBucket, ListBucket, GetObject, etc.)
-- [ ] Root vs MCP identity test results (booleans/results only)
+- [ ] `./scripts/validate.sh` service-identity and IAM boundary results
 - [ ] Current Git commit SHA and image tags
 - [ ] Whether issue reproduces on loopback or only through Tailscale
 

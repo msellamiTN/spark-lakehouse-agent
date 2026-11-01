@@ -347,7 +347,16 @@ docker compose up -d
 - Tailscale ACLs control network reachability; they do not isolate individual student data, Spark sessions, MinIO buckets, or MCP tool permissions. Before sharing sensitive data or enabling writes, implement per-team buckets/service accounts and Spark-side authorization/session isolation.
 - This is a training/lab deployment, not a production-hardened multi-tenant platform.
 
-## 11. Documentation
+## 11. Phase 2 — Lakehouse foundation
+
+Phase 2.1 establishes the logical object-key conventions, versioned dataset contracts, semantic validation and CI checks. It does not yet deploy an ingestion scheduler, catalog or transactional table format.
+
+- [Phase 2.1 implementation and acceptance criteria](docs/PHASE-2.1-LAKEHOUSE-FOUNDATION.md)
+- [Dataset contract schema and examples](docs/contracts/README.md)
+- [Editable Phase 2 Lakehouse flow diagram](docs/diagrams/phase-2-lakehouse-foundation.mmd)
+- Run local checks with `bash scripts/validate-phase-2.1.sh`.
+
+## 12. Documentation
 
 - [Default Docker Compose + Tailscale Serve deployment](docs/mcp/DOCKER-TAILSCALE-STUDENT-LAB.md)
 - [Remote access from Windows and Google Colab](docs/mcp/COLAB-ACCESS.md)

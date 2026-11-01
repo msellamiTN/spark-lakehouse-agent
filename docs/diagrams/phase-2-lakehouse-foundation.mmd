@@ -1,0 +1,26 @@
+flowchart LR
+  SRC["Source systems / files"] --> RAW["MinIO lakehouse/raw<br/>Original source objects"]
+  RAW --> INGEST["Contract-driven ingestion<br/>(Phase 2.2 — planned)"]
+  INGEST --> BRONZE["MinIO lakehouse/bronze<br/>Traceable Parquet"]
+  BRONZE --> QUALITY["Schema + quality gates"]
+  QUALITY -->|valid| SILVER["MinIO lakehouse/silver<br/>Conformed Parquet"]
+  QUALITY -->|rejected| QUARANTINE["MinIO lakehouse/quarantine"]
+  SILVER --> PRODUCT["Business transformations"]
+  PRODUCT --> GOLD["MinIO lakehouse/gold<br/>Data products"]
+  CONTRACT["Versioned JSON contracts<br/>docs/contracts/"] -. governs .-> INGEST
+  CONTRACT -. governs .-> QUALITY
+  SPARK["Apache Spark 3.5.6 + S3A"] --- INGEST
+  SPARK --- QUALITY
+  SPARK --- PRODUCT
+  AGENT["MCP clients / agents"] --> MCP["MinIO MCP<br/>read-only by default"]
+  MCP -->|allowlisted reads| RAW
+  MCP -->|allowlisted reads| BRONZE
+  MCP -->|allowlisted reads| SILVER
+  MCP -->|allowlisted reads| GOLD
+  MCP -. optional PutObject scope .-> OUTPUTS["lakehouse/agent-outputs"]
+  classDef storage fill:#e8f1fb,stroke:#35618f,color:#17324d
+  classDef compute fill:#fef3d9,stroke:#a7791f,color:#4a3510
+  classDef governance fill:#e9f5ec,stroke:#3c7b4b,color:#183d23
+  class RAW,BRONZE,SILVER,GOLD,QUARANTINE,OUTPUTS storage
+  class INGEST,QUALITY,PRODUCT,SPARK compute
+  class CONTRACT,MCP governance

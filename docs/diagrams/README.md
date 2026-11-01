@@ -22,12 +22,21 @@ The deployment architecture and logical data architecture are maintained as sepa
 
 The `lakehouse` bucket contains logical `raw/`, `bronze/`, `silver/` and `gold/` prefixes. Compose configures Spark to read and write those zones through S3A. Rebuild the custom image and pass the distributed Parquet validation before marking the integration operational on a host; see [ARCHITECTURE.md](../ARCHITECTURE.md).
 
+## Phase 2.1 — Lakehouse foundation
+
+The editable target data-flow diagram is maintained separately from the Phase 1 deployment SVG. It shows the contract-governed Raw → Bronze → Silver → Gold path, quarantine handling, Spark S3A processing and the optional agent-output boundary.
+
+[Open the Phase 2.1 Mermaid source](phase-2-lakehouse-foundation.mmd) · [Read the Phase 2.1 foundation specification](../PHASE-2.1-LAKEHOUSE-FOUNDATION.md)
+
+The Phase 2.1 diagram is a target data architecture. Contract-driven ingestion is planned for Phase 2.2 and is not represented as a deployed service.
+
 ## Diagram catalogue
 
 | Asset | Format | Purpose | Status |
 |---|---|---|---|
 | [Phase 1 deployment architecture](phase-1-architecture.svg) | SVG | Detailed deployment topology, private ingress, MCP routing, services and persistence | Current deployment view |
 | [Logical Lakehouse — MinIO + Spark](logical-lakehouse-minio-spark.svg) | SVG | Raw → Bronze → Silver → Gold object zones, S3A processing and consumers | Logical target architecture |
+| [Phase 2.1 Lakehouse foundation](phase-2-lakehouse-foundation.mmd) | Mermaid | Contract-governed Raw → Bronze → Silver → Gold data flow | Target architecture; ingestion deferred to Phase 2.2 |
 | Supporting flow views | Mermaid | Selected operational sequences | Supplementary; maintained in [ARCHITECTURE.md](../ARCHITECTURE.md) |
 
 ## Source-of-truth rules

@@ -1,0 +1,36 @@
+{
+  "contract_version": "1.0.0",
+  "dataset_id": "retail.transactions",
+  "domain": "retail",
+  "name": "transactions",
+  "owner": "data-engineering",
+  "description": "Retail transaction line records used to demonstrate contract-driven ingestion and Medallion transformations.",
+  "source": {
+    "zone": "raw",
+    "format": "csv",
+    "path_template": "s3a://lakehouse/raw/retail/transactions/ingest_date={ingest_date}/"
+  },
+  "target": {
+    "zone": "bronze",
+    "format": "parquet",
+    "path_template": "s3a://lakehouse/bronze/retail/transactions/"
+  },
+  "primary_key": ["transaction_id"],
+  "partition_by": ["transaction_date"],
+  "fields": [
+    {"name": "transaction_id", "type": "string", "nullable": false, "description": "Stable source transaction identifier."},
+    {"name": "customer_id", "type": "string", "nullable": false, "description": "Pseudonymous retail customer identifier."},
+    {"name": "transaction_date", "type": "date", "nullable": false, "description": "Business date of the transaction."},
+    {"name": "product_id", "type": "string", "nullable": false, "description": "Retail product identifier."},
+    {"name": "quantity", "type": "int", "nullable": false, "description": "Number of units purchased; must be positive."},
+    {"name": "unit_price", "type": "decimal", "nullable": false, "description": "Unit price in the dataset currency."},
+    {"name": "currency", "type": "string", "nullable": false, "description": "ISO 4217 currency code."},
+    {"name": "store_id", "type": "string", "nullable": false, "description": "Store or sales-channel identifier."}
+  ],
+  "quality_rules": [
+    {"rule_id": "transaction_id_unique", "description": "Each transaction_id must identify one source record.", "severity": "error"},
+    {"rule_id": "quantity_positive", "description": "Quantity must be greater than zero.", "severity": "error"},
+    {"rule_id": "unit_price_non_negative", "description": "Unit price must be greater than or equal to zero.", "severity": "error"},
+    {"rule_id": "currency_iso_code", "description": "Currency must be a valid three-letter ISO 4217 code.", "severity": "warning"}
+  ]
+}

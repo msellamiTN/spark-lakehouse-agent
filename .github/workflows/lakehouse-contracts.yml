@@ -31,7 +31,34 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Validate dataset contracts
+      - name: Install JSON Schema validator
+        run: python -m pip install "jsonschema>=4.23,<5"
+
+      - name: Check JSON Schema and validate all dataset contracts
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          from jsonschema import Draft202012Validator
+
+          schema_path = Path("docs/contracts/schema/dataset-contract.schema.json")
+          schema = json.loads(schema_path.read_text(encoding="utf-8"))
+          Draft202012Validator.check_schema(schema)
+          validator = Draft202012Validator(schema)
+          contracts = sorted(Path("docs/contracts/datasets").glob("*.json"))
+          if not contracts:
+              raise SystemExit("No dataset contract files found.")
+          for path in contracts:
+              contract = json.loads(path.read_text(encoding="utf-8"))
+              errors = sorted(validator.iter_errors(contract), key=lambda error: list(error.path))
+              if errors:
+                  for error in errors:
+                      print(f"{path}: {error.message}")
+                  raise SystemExit(1)
+              print(f"JSON Schema PASS: {path}")
+          PY
+
+      - name: Run semantic contract validator
         run: python scripts/validate_lakehouse_contracts.py
 
       - name: Run contract unit tests
